@@ -979,7 +979,7 @@ extension SettingsViewController
     override func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat
     {
         if self.isAppleIDsRow(indexPath) {
-            return 44
+            return UIFontMetrics.default.scaledValue(for: 51)
         }
         if Section.allCases[indexPath.section] == .account && indexPath.row == 3 {
             return AccountVerificationRow.preferredHeight
@@ -1046,10 +1046,19 @@ extension SettingsViewController
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell
     {
         if self.isAppleIDsRow(indexPath) {
+            // Matches the storyboard's account rows, scaled for Dynamic Type.
             let cell = InsetGroupTableViewCell(style: .value1, reuseIdentifier: nil)
             cell.textLabel?.text = NSLocalizedString("Apple IDs", comment: "")
-            cell.detailTextLabel?.text = String(AppleAccountStore.shared.accounts().count)
+            cell.textLabel?.font = UIFontMetrics.default.scaledFont(for: .systemFont(ofSize: 17))
+            cell.textLabel?.textColor = UIColor.white.withAlphaComponent(0.8)
+            cell.textLabel?.adjustsFontForContentSizeCategory = true
+            cell.detailTextLabel?.text = NumberFormatter.localizedString(from: NSNumber(value: AppleAccountStore.shared.storedAppleIDs().count), number: .none)
+            cell.detailTextLabel?.font = UIFontMetrics.default.scaledFont(for: .systemFont(ofSize: 17, weight: .semibold))
+            cell.detailTextLabel?.textColor = .white
+            cell.detailTextLabel?.adjustsFontForContentSizeCategory = true
+            cell.layoutMargins = UIEdgeInsets(top: 8, left: 30, bottom: 8, right: 30)
             cell.accessoryType = .disclosureIndicator
+            cell.accessibilityHint = NSLocalizedString("Shows the Apple IDs signed in to SideStore.", comment: "")
             cell.isSelectable = true
             cell.style = .bottom
             return cell
@@ -1182,8 +1191,9 @@ extension SettingsViewController
             if self.isAppleIDsRow(indexPath) {
                 tableView.deselectRow(at: indexPath, animated: true)
                 let hostingController = UIHostingController(rootView: AppleAccountsView())
+                hostingController.view.backgroundColor = .settingsBackground
                 hostingController.title = NSLocalizedString("Apple IDs", comment: "")
-                self.navigationController?.pushViewController(hostingController, animated: true)
+                self.prepare(for: UIStoryboardSegue(identifier: "diagnostics", source: self, destination: hostingController), sender: nil)
             } else if indexPath.row == 3 {
                 tableView.deselectRow(at: indexPath, animated: true)
                 self.resolvePendingAccountActions()
