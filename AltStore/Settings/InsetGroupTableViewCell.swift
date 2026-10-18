@@ -116,6 +116,16 @@ class InsetGroupTableViewCell: UITableViewCell
     }
 }
 
+extension InsetGroupTableViewCell
+{
+    /// The color of the rounded card behind the cell. Interface Builder sets it through the cell's background color;
+    /// cells made in code can set it here to match.
+    var insetBackgroundColor: UIColor? {
+        get { self.insetView.backgroundColor }
+        set { self.insetView.backgroundColor = newValue }
+    }
+}
+
 private extension InsetGroupTableViewCell
 {
     func update()
