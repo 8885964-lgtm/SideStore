@@ -140,6 +140,7 @@ class MyAppsViewController: UICollectionViewController
         #endif
         
         NotificationCenter.default.addObserver(self, selector: #selector(MyAppsViewController.didChangeAppIcon(_:)), name: UIApplication.didChangeAppIconNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(MyAppsViewController.appleAccountsDidChange(_:)), name: AppleAccountStore.didChangeNotification, object: nil)
         
         if minimuxerStatusCheckTask == nil {
             minimuxerStatusCheckTask = Task {
@@ -497,6 +498,7 @@ private extension MyAppsViewController
             cell.bannerView.button.configure(for: installedApp)
             cell.bannerView.button.isIndicatingActivity = false
             cell.bannerView.configure(for: installedApp, action: .custom(cell.bannerView.button.title(for: .normal) ?? ""))
+            cell.bannerView.showSigningAppleID(for: installedApp)
             
             if cell.bundleIdentifier != installedApp.bundleIdentifier
             {
@@ -584,6 +586,7 @@ private extension MyAppsViewController
             
             cell.bannerView.button.isIndicatingActivity = false
             cell.bannerView.configure(for: installedApp, action: .custom(NSLocalizedString("ACTIVATE", comment: "")))
+            cell.bannerView.showSigningAppleID(for: installedApp)
             
             cell.bannerView.button.tintColor = tintColor
             cell.bannerView.button.removeTarget(self, action: nil, for: .primaryActionTriggered)
@@ -1897,6 +1900,14 @@ private extension MyAppsViewController
                 
                 completion?()
             }
+        }
+    }
+    
+    @objc func appleAccountsDidChange(_ notification: Notification)
+    {
+        DispatchQueue.main.async {
+            guard self.isViewLoaded else { return }
+            self.reconfigureVisibleCells()
         }
     }
     
