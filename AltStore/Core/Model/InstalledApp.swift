@@ -244,13 +244,6 @@ public class InstalledApp: BaseEntity, InstalledAppProtocol
     public var appIDCount: Int {
         return 1 + self.appExtensions.count
     }
-
-    /// Free-account active slots are per team. Apps with no team stay on the legacy global count.
-    public func countsAgainstActiveLimit(ofTeamIdentifier teamIdentifier: String?) -> Bool {
-        guard (self.team?.type ?? .unknown) == .free else { return false }
-        guard let teamIdentifier, !teamIdentifier.isEmpty else { return true }
-        return self.team?.identifier == teamIdentifier
-    }
     
     public var requiredActiveSlots: Int {
         let requiredActiveSlots = UserDefaults.standard.activeAppLimitIncludesExtensions ? self.appIDCount : 1

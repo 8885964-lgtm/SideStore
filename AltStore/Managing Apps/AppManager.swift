@@ -148,10 +148,9 @@ final class AppManager: ObservableObject, @unchecked Sendable
               let activeAppsLimit = UserDefaults.standard.activeAppsLimit
         else { return nil }
 
-        let teamID = installedApp.team?.identifier
         let activeApps = InstalledApp.fetchActiveApps(in: DatabaseManager.shared.viewContext)
             .filter { $0.resignedBundleIdentifier != installedApp.resignedBundleIdentifier }
-            .filter { $0.countsAgainstActiveLimit(ofTeamIdentifier: teamID) }
+            .filter { ($0.team?.type ?? .unknown) == .free }
             .sorted { ($0.name, $0.refreshedDate) < ($1.name, $1.refreshedDate) }
 
         let activeAppsCount = activeApps.map(\.requiredActiveSlots).reduce(0, +)
@@ -462,15 +461,39 @@ final class AppManager: ObservableObject, @unchecked Sendable
 
         debugLog("[AppManager] install() asking which Apple ID should sign \(target).")
         let appName: String
+        let bundleIdentifier: String?
         switch target {
-        case .app(let app): appName = app.name
-        case .url(let url): appName = url.deletingPathExtension().lastPathComponent
+        case .app(let app):
+            appName = app.name
+            bundleIdentifier = app.bundleIdentifier
+        case .url(let url):
+            appName = url.deletingPathExtension().lastPathComponent
+            bundleIdentifier = nil
         }
         let dbContext = self.getValidDbContext(dbBackgroundContext)
         let group = RefreshGroup(dbContext: dbContext)
         group.activeTask = Task {
             let choice = await AppleAccountPicker.choose(from: presentingViewController, appName: appName)
             guard let choice, !Task.isCancelled, !group.progress.isCancelled else {
+                await MainActor.run {
+                    completionHandler(.failure(CancellationError()))
+                }
+                return
+            }
+            // The free-profile limit is per device, so another Apple ID can't add room; ask before signing.
+            let room = await FreeAppLimitGuard.makeRoom(
+                forAppNamed: appName,
+                bundleIdentifier: bundleIdentifier,
+                signingAppleID: choice,
+                presentingViewController: presentingViewController
+            )
+            if case .failure(let error) = room {
+                await MainActor.run {
+                    completionHandler(.failure(error))
+                }
+                return
+            }
+            guard !Task.isCancelled, !group.progress.isCancelled else {
                 await MainActor.run {
                     completionHandler(.failure(CancellationError()))
                 }
