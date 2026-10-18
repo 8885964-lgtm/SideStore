@@ -34,7 +34,9 @@ struct AppleAccountsView: View {
 
     var body: some View {
         self.content
-            .onAppear(perform: self.reload)
+            .onAppear {
+                self.reload()
+            }
             .onReceive(self.accountChanges) { _ in
                 self.reload()
             }
@@ -45,7 +47,7 @@ struct AppleAccountsView: View {
             .alert(
                 Text(self.failureTitle),
                 isPresented: self.isShowingFailure,
-                actions: { Button("OK", role: .cancel) {} },
+                actions: { SwiftUI.Button("OK", role: .cancel) {} },
                 message: { Text(self.failureMessage) }
             )
             .confirmationDialog(
@@ -107,7 +109,7 @@ struct AppleAccountsView: View {
 
     private var addSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Button(action: self.addAccount) {
+            SwiftUI.Button(action: { self.addAccount() }) {
                 AppleAccountsAddLabel(isAdding: self.isAdding)
             }
             .buttonStyle(.plain)
@@ -122,10 +124,10 @@ struct AppleAccountsView: View {
 
     @ViewBuilder
     private var removalActions: some View {
-        Button(self.removalButtonTitle, role: .destructive) {
+        SwiftUI.Button(self.removalButtonTitle, role: .destructive) {
             self.removePendingAccount()
         }
-        Button("Cancel", role: .cancel) {
+        SwiftUI.Button("Cancel", role: .cancel) {
             self.pendingRemoval = nil
         }
     }
@@ -295,7 +297,7 @@ private struct AppleAccountRow: View {
     }
 
     private var selectButton: some View {
-        Button(action: self.select) {
+        SwiftUI.Button(action: self.select) {
             AppleAccountRowLabel(account: self.account, isActive: self.isActive)
         }
         .buttonStyle(.plain)
@@ -339,11 +341,11 @@ private struct AppleAccountRow: View {
     @ViewBuilder
     private var menuItems: some View {
         if !self.isActive {
-            Button(action: self.select) {
+            SwiftUI.Button(action: self.select) {
                 Label(NSLocalizedString("Use This Apple ID", comment: ""), systemImage: "person.crop.circle.badge.checkmark")
             }
         }
-        Button(role: .destructive, action: self.remove) {
+        SwiftUI.Button(role: .destructive, action: self.remove) {
             Label(NSLocalizedString("Remove Apple ID…", comment: ""), systemImage: "trash")
         }
     }
