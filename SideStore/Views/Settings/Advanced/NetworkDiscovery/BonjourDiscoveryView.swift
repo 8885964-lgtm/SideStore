@@ -823,7 +823,7 @@ struct ServiceDetailView: View {
             Text("Resolution Failed")
                 .font(.headline)
                 .foregroundColor(.secondary)
-            Text(message)
+            Text(localizedInterfaceString(message))
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
@@ -1120,7 +1120,7 @@ private struct DetailRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 6) {
-                Text(label)
+                Text(localizedInterfaceString(label))
                     .font(.caption)
                     .foregroundColor(.secondary)
                 if let tag = tag, !tag.isEmpty {

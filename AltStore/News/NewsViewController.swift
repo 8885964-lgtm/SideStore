@@ -78,6 +78,7 @@ class NewsViewController: UICollectionViewController
     override func viewDidLoad()
     {
         super.viewDidLoad()
+        InterfaceLocalizer.localize(self)
         
         self.collectionView.backgroundColor = .altBackground
         

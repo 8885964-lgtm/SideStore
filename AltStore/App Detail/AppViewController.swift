@@ -66,6 +66,7 @@ final class AppViewController: UIViewController
     override func viewDidLoad()
     {
         super.viewDidLoad()
+        InterfaceLocalizer.localize(self)
         
         self.navigationBarDownloadButton = PillButton(type: .system)
         self.navigationBarDownloadButton.setContentCompressionResistancePriority(.required, for: .horizontal)

@@ -47,6 +47,12 @@ final class TabBarController: UITabBarController
         
         let sourcesNavigationController = self.viewControllers![Tab.sources.rawValue] as! UINavigationController
         self.sourcesViewController = sourcesNavigationController.viewControllers.first as? SourcesViewController
+        
+        // Tab titles come from the storyboard, which isn't localized.
+        for viewController in self.viewControllers ?? []
+        {
+            InterfaceLocalizer.localizeBarItem(viewController.tabBarItem)
+        }
     }
     
     override func viewDidAppear(_ animated: Bool)

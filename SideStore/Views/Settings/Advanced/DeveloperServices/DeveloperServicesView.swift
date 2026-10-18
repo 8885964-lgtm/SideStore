@@ -202,7 +202,7 @@ struct DeveloperServicesToastView: View {
         VStack {
             Spacer()
             if isShowing {
-                Text(message)
+                Text(localizedInterfaceString(message))
                     .font(.subheadline)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)

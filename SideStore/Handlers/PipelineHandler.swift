@@ -106,7 +106,7 @@ final class PipelineHandler: PipelineExecutionHandler,
                 firstSentence = NSLocalizedString("Non-developer Apple IDs are limited to creating 10 App IDs per week.", comment: "")
             }
             
-            let message = firstSentence + " " + NSLocalizedString("Would you like to remove this app's extensions so they don't count towards your limit? There are \(appBundle.appExtensions.count) Extensions", comment: "")
+            let message = firstSentence + " " + String(format: NSLocalizedString("Would you like to remove this app's extensions so they don't count towards your limit? There are %@ Extensions", comment: ""), NSNumber(value: appBundle.appExtensions.count))
             
             let alertController = UIAlertController(title: NSLocalizedString("App Contains Extensions", comment: ""), message: message, preferredStyle: .alert)
             alertController.addAction(UIAlertAction(title: UIAlertAction.cancel.title, style: UIAlertAction.cancel.style, handler: { _ in
@@ -181,10 +181,8 @@ final class PipelineHandler: PipelineExecutionHandler,
         await withCheckedContinuation { continuation in
             Task { @MainActor in
                 let alert = UIAlertController(
-                    title: "Finish Refresh",
-                    message: """
-                    To finish refreshing, SideStore must be moved to the background. To do this, you can either go to the Home Screen manually or by hitting Continue. Please reopen SideStore after doing this.
-                    """,
+                    title: NSLocalizedString("Finish Refresh", comment: ""),
+                    message: NSLocalizedString("To finish refreshing, SideStore must be moved to the background. To do this, you can either go to the Home Screen manually or by hitting Continue. Please reopen SideStore after doing this.", comment: ""),
                     preferredStyle: .alert
                 )
                 alert.addAction(UIAlertAction(title: NSLocalizedString("Continue", comment: ""), style: .default, handler: { _ in

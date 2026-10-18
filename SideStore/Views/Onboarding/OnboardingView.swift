@@ -181,9 +181,9 @@ private struct WelcomeStep: View {
                 .frame(width: 32, height: 32)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(title)
+                Text(localizedInterfaceString(title))
                     .font(.headline)
-                Text(description)
+                Text(localizedInterfaceString(description))
                     .font(.footnote)
                     .foregroundColor(.secondary)
             }
@@ -723,7 +723,7 @@ private struct CompleteStep: View {
                 .font(.system(size: 20))
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(title)
+                Text(localizedInterfaceString(title))
                     .font(.subheadline)
                     .fontWeight(.semibold)
 

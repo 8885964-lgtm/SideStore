@@ -75,6 +75,7 @@ class BrowseViewController: UICollectionViewController
     override func viewDidLoad()
     {
         super.viewDidLoad()
+        InterfaceLocalizer.localize(self)
         
         self.collectionView.backgroundColor = .altBackground
         self.collectionView.alwaysBounceVertical = true

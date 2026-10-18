@@ -89,6 +89,7 @@ class MyAppsViewController: UICollectionViewController
     override func viewDidLoad()
     {
         super.viewDidLoad()
+        InterfaceLocalizer.localize(self)
         
         // Allows us to intercept delegate callbacks.
         self.updatesDataSource.fetchedResultsController.delegate = self
@@ -1562,8 +1563,8 @@ private extension MyAppsViewController
                 toast = ToastView(error: error, opensLog: false)
                 break
             case .success:
-                toast = ToastView(text: "Import Backup successful for \(installedApp.name)",
-                                  detailText: "Use 'Restore Backup' option to restore data from this imported backup")
+                toast = ToastView(text: String(format: NSLocalizedString("Import Backup successful for %@", comment: ""), installedApp.name),
+                                  detailText: NSLocalizedString("Use 'Restore Backup' option to restore data from this imported backup", comment: ""))
             }
             DispatchQueue.main.async {
                 toast.show(in: self)
@@ -2027,6 +2028,7 @@ extension MyAppsViewController
             
         case .activeApps, .inactiveApps:
             let footerView = collectionView.dequeueReusableSupplementaryView(ofKind: UICollectionView.elementKindSectionFooter, withReuseIdentifier: "InstalledAppsFooter", for: indexPath) as! InstalledAppsCollectionFooterView
+            InterfaceLocalizer.localize(footerView as UIView)
             
             guard let team = self.activeTeam else { return footerView }
             switch team.type
@@ -2627,14 +2629,7 @@ extension MyAppsViewController: UICollectionViewDropDelegate
                 return UICollectionViewDropProposal(operation: .move, intent: .insertAtDestinationIndexPath)
             }
             
-            let teamID = installedApp.team?.identifier
-            let activeAppsCount = (self.activeAppsDataSource.fetchedResultsController.fetchedObjects ?? [])
-                .filter { app in
-                    guard let teamID, !teamID.isEmpty else { return true }
-                    return app.team?.identifier == nil || app.team?.identifier == teamID
-                }
-                .map { $0.requiredActiveSlots }
-                .reduce(0, +)
+            let activeAppsCount = (self.activeAppsDataSource.fetchedResultsController.fetchedObjects ?? []).map { $0.requiredActiveSlots }.reduce(0, +)
             let availableActiveApps = max(activeAppsLimit - activeAppsCount, 0)
             
             if installedApp.requiredActiveSlots <= availableActiveApps

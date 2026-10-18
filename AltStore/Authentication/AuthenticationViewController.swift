@@ -30,6 +30,7 @@ final class AuthenticationViewController: UIViewController
     override func viewDidLoad()
     {
         super.viewDidLoad()
+        InterfaceLocalizer.localize(self)
         
         // fetch anisette servers asap when loading Auth Screen (if list is empty)
         Task {

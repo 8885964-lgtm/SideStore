@@ -241,6 +241,10 @@ final class SettingsViewController: UITableViewController
         
         self.tableView.register(nib, forHeaderFooterViewReuseIdentifier: "HeaderFooterView")
         
+        // The storyboard isn't localized; translate its rows before any account details are filled in.
+        InterfaceLocalizer.localize(self)
+        self.localizeStaticCells()
+        
         let debugModeGestureRecognizer = UISwipeGestureRecognizer(target: self, action: #selector(SettingsViewController.handleDebugModeGesture(_:)))
         debugModeGestureRecognizer.delegate = self
         debugModeGestureRecognizer.direction = .up
@@ -471,12 +475,28 @@ private extension SettingsViewController
         }
     }
     
+    /// Static cells aren't in the view hierarchy until they're displayed, so they're translated one by one.
+    private func localizeStaticCells()
+    {
+        let numberOfSections = super.numberOfSections(in: self.tableView)
+        for section in 0 ..< numberOfSections
+        {
+            let numberOfRows = super.tableView(self.tableView, numberOfRowsInSection: section)
+            for row in 0 ..< numberOfRows
+            {
+                let cell = super.tableView(self.tableView, cellForRowAt: IndexPath(row: row, section: section))
+                InterfaceLocalizer.localize(cell.contentView)
+            }
+        }
+    }
+    
     private func updateAccountCardRowStyles()
     {
         guard self.isViewLoaded else { return }
         let typeIndexPath = IndexPath(row: 2, section: Section.account.rawValue)
         if let typeCell = self.tableView.cellForRow(at: typeIndexPath) as? InsetGroupTableViewCell {
-            typeCell.style = (self.accountStatus == .completed) ? .bottom : .middle
+            // The Apple IDs row always closes the card while signed in.
+            typeCell.style = (self.showsAppleIDsRow || self.accountStatus != .completed) ? .middle : .bottom
         }
     }
     
@@ -748,7 +768,7 @@ private extension SettingsViewController
                     guard UserDefaults.standard.recreateDatabaseOnNextStart else {
                         return
                     }
-                    let toast = ToastView(text: "Database Delete Scheduled on Next Launch", detailText: "App is closing in \(time) seconds...")
+                    let toast = ToastView(text: NSLocalizedString("Database Delete Scheduled on Next Launch", comment: ""), detailText: String(format: NSLocalizedString("App is closing in %@ seconds...", comment: ""), NSNumber(value: time)))
                     toast.tintColor = .altPrimary
                     toast.preferredDuration = 1
                     toast.show(in: self)
@@ -979,7 +999,7 @@ extension SettingsViewController
     override func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat
     {
         if self.isAppleIDsRow(indexPath) {
-            return UIFontMetrics.default.scaledValue(for: 51)
+            return AppleAccountsSettingsCell.preferredHeight
         }
         if Section.allCases[indexPath.section] == .account && indexPath.row == 3 {
             return AccountVerificationRow.preferredHeight
@@ -1046,21 +1066,9 @@ extension SettingsViewController
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell
     {
         if self.isAppleIDsRow(indexPath) {
-            // Matches the storyboard's account rows, scaled for Dynamic Type.
-            let cell = InsetGroupTableViewCell(style: .value1, reuseIdentifier: nil)
-            cell.textLabel?.text = NSLocalizedString("Apple IDs", comment: "")
-            cell.textLabel?.font = UIFontMetrics.default.scaledFont(for: .systemFont(ofSize: 17))
-            cell.textLabel?.textColor = UIColor.white.withAlphaComponent(0.8)
-            cell.textLabel?.adjustsFontForContentSizeCategory = true
-            cell.detailTextLabel?.text = NumberFormatter.localizedString(from: NSNumber(value: AppleAccountStore.shared.storedAppleIDs().count), number: .none)
-            cell.detailTextLabel?.font = UIFontMetrics.default.scaledFont(for: .systemFont(ofSize: 17, weight: .semibold))
-            cell.detailTextLabel?.textColor = .white
-            cell.detailTextLabel?.adjustsFontForContentSizeCategory = true
-            cell.layoutMargins = UIEdgeInsets(top: 8, left: 30, bottom: 8, right: 30)
-            cell.accessoryType = .disclosureIndicator
-            cell.accessibilityHint = NSLocalizedString("Shows the Apple IDs signed in to SideStore.", comment: "")
-            cell.isSelectable = true
-            cell.style = .bottom
+            let cell = tableView.dequeueReusableCell(withIdentifier: AppleAccountsSettingsCell.reuseIdentifier) as? AppleAccountsSettingsCell
+                ?? AppleAccountsSettingsCell()
+            cell.configure(numberOfAppleIDs: AppleAccountStore.shared.storedAppleIDs().count)
             return cell
         }
         if Section.allCases[indexPath.section] == .account && indexPath.row == 3 {
@@ -1277,7 +1285,7 @@ extension SettingsViewController
             switch row
             {
             case .sendFeedback:
-                let alertController = UIAlertController(title: "Send Feedback", message: "Choose a method to send feedback:", preferredStyle: .actionSheet)
+                let alertController = UIAlertController(title: NSLocalizedString("Send Feedback", comment: ""), message: NSLocalizedString("Choose a method to send feedback:", comment: ""), preferredStyle: .actionSheet)
                 
                 // Option 1: GitHub
                 alertController.addAction(UIAlertAction(title: "GitHub", style: .default) { _ in
@@ -1291,7 +1299,7 @@ extension SettingsViewController
                 
                 #if !os(tvOS)
                 // Option 3: Mail
-                alertController.addAction(UIAlertAction(title: "Send Email", style: .default) { _ in
+                alertController.addAction(UIAlertAction(title: NSLocalizedString("Send Email", comment: ""), style: .default) { _ in
                     if MFMailComposeViewController.canSendMail() {
                         let mailViewController = MFMailComposeViewController()
                         mailViewController.mailComposeDelegate = self
@@ -1353,7 +1361,7 @@ extension SettingsViewController
                     selected: UserDefaults.standard.menuAnisetteURL,
                     onResetAdiPb: { [weak self] in
                         guard let self = self else { return }
-                        ToastView(text: "Cleared adi.pb!", detailText: "You will need to log back into Apple ID in SideStore.")
+                        ToastView(text: NSLocalizedString("Cleared adi.pb!", comment: ""), detailText: NSLocalizedString("You will need to log back into Apple ID in SideStore.", comment: ""))
                             .show(in: self)
                     }
                 )

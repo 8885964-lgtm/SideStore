@@ -42,6 +42,7 @@ final class SourcesViewController: UICollectionViewController
     override func viewDidLoad()
     {
         super.viewDidLoad()
+        InterfaceLocalizer.localize(self)
         
         // Ensure large titles
         #if !os(tvOS)
@@ -50,7 +51,7 @@ final class SourcesViewController: UICollectionViewController
         #endif
 
         // Set title
-        navigationItem.title = "Sources"
+        navigationItem.title = NSLocalizedString("Sources", comment: "")
         navigationController?.navigationBar.layoutMargins.left = 20
         
         let layout = self.makeLayout()

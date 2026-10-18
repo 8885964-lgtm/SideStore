@@ -266,7 +266,7 @@ class AnisetteDataViewModel: ObservableObject {
         if let error = error {
             toast = ToastView(error: error, opensLog: true)
         } else {
-            toast = ToastView(text: text, detailText: detailText)
+            toast = ToastView(text: localizedInterfaceString(text), detailText: detailText.map(localizedInterfaceString))
         }
         
         let keyWindow = UIApplication.shared.alt_keyWindow
@@ -717,7 +717,7 @@ struct AnisetteDataView: View {
     }
     
     private func sectionHeader(_ title: String) -> some View {
-        Text(title)
+        Text(localizedInterfaceString(title))
             .font(.system(size: 13, weight: .semibold))
             .foregroundColor(Color.white.opacity(0.6))
             .padding(.horizontal, 16)
@@ -733,7 +733,7 @@ struct AnisetteDataView: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text(title)
+                Text(localizedInterfaceString(title))
                     .font(.system(size: 15, weight: .bold))
                     .foregroundColor(.white)
                 Spacer()
@@ -752,7 +752,7 @@ struct AnisetteDataView: View {
                     .background(Color.white.opacity(0.06))
                     .cornerRadius(8)
                 #else
-                TextField(placeholder, text: text)
+                TextField(localizedInterfaceString(placeholder), text: text)
                     .font(.system(size: 13, design: .monospaced))
                     .foregroundColor(.white)
                     .padding(8)
@@ -760,7 +760,7 @@ struct AnisetteDataView: View {
                     .cornerRadius(8)
                 #endif
             } else {
-                TextField(placeholder, text: text)
+                TextField(localizedInterfaceString(placeholder), text: text)
                     .font(.system(size: 13, design: .monospaced))
                     .foregroundColor(.white)
                     .autocapitalization(autocapitalization)
@@ -778,7 +778,7 @@ struct AnisetteDataView: View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 3) {
                 HStack {
-                    Text(title)
+                    Text(localizedInterfaceString(title))
                         .font(.system(size: 15, weight: .bold))
                         .foregroundColor(.white)
                     Spacer()
@@ -786,7 +786,7 @@ struct AnisetteDataView: View {
                         .font(.system(size: 11, design: .monospaced))
                         .foregroundColor(Color.white.opacity(0.45))
                 }
-                Text(subtitle)
+                Text(localizedInterfaceString(subtitle))
                     .font(.system(size: 12))
                     .foregroundColor(Color.white.opacity(0.55))
             }

@@ -565,7 +565,7 @@ private extension AppDelegate
                 DispatchQueue.main.async {
                     if UIApplication.shared.applicationState == .active {
                         if !updates.isEmpty, let window = UIApplication.shared.connectedScenes.compactMap({ ($0 as? UIWindowScene)?.windows.first(where: { $0.isKeyWindow }) }).first {
-                            let toastView = ToastView(text: "New Update Available", detailText: "\(updates.count) update(s) available")
+                            let toastView = ToastView(text: NSLocalizedString("New Update Available", comment: ""), detailText: String(format: NSLocalizedString("%@ update(s) available", comment: ""), NSNumber(value: updates.count)))
                             toastView.show(in: window)
                         }
                     } else {

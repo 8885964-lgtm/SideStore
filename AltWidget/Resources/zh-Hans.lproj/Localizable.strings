@@ -31,3 +31,18 @@
 "Underlying Errors" = "底层错误";
 "Unsupported iOS" = "不受支持的 iOS";
 "Widget ID update Intent" = "小组件 ID 更新意图";
+
+/* Widget gallery names, descriptions and interpolated labels */
+"Active Apps" = "活跃 App";
+"App Status" = "App 状态";
+"AltWidget (Text)" = "AltWidget（文字）";
+"AltWidget (Icon)" = "AltWidget（图标）";
+"View remaining days until your active apps expire. Tap the countdown timers to refresh them in the background." = "查看活跃 App 的剩余有效天数。轻点倒计时可在后台刷新。";
+"View remaining days until your sideloaded apps expire. Tap the countdown timer to refresh them in the background." = "查看侧载 App 的剩余有效天数。轻点倒计时可在后台刷新。";
+"View remaining days until SideStore expires." = "查看 SideStore 的剩余有效天数。";
+"Requires iOS 17 or later." = "需要 iOS 17 或更高版本。";
+"Requires iOS 16 or later." = "需要 iOS 16 或更高版本。";
+"Requires %@ or later" = "需要 %@ 或更高版本";
+"Expires in %lld " = "剩余 %lld ";
+"%lld days" = "%lld 天";
+"DAY" = "天";

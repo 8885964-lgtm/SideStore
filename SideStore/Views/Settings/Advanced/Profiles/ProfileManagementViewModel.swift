@@ -128,7 +128,7 @@ final class ProfileManagementViewModel: ObservableObject, @unchecked Sendable {
             self.remoteProfileUUIDs.remove(profile.uuid)
             self.remoteProfileIdMap.removeValue(forKey: profile.uuid)
             self.profiles = updatedLocal
-            self.showToast("Deleted profile '\(profile.name)'")
+            self.showToast(String(format: NSLocalizedString("Deleted profile '%@'", comment: ""), profile.name))
         }
     }
 
