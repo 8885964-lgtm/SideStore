@@ -45,7 +45,7 @@ final class AccountSessionGate: @unchecked Sendable {
         if Self.depth > 0 {
             return try await body()
         }
-        try await self.performExclusive {
+        return try await self.performExclusive {
             guard self.requiresSwitch(to: appleID), let appleID else {
                 return try await body()
             }
@@ -94,7 +94,8 @@ final class AccountSessionGate: @unchecked Sendable {
         guard !coordinator.persistentStores.isEmpty else { return }
         let context = DatabaseManager.shared.persistentContainer.newBackgroundContext()
         try await context.perform {
-            let accounts = try context.fetch(Account.fetchRequest())
+            let accountRequest: NSFetchRequest<Account> = Account.fetchRequest()
+            let accounts = try context.fetch(accountRequest)
             var match: Account?
             for dbAccount in accounts {
                 let isMatch = dbAccount.appleID.caseInsensitiveCompare(account.appleID) == .orderedSame
@@ -124,7 +125,8 @@ final class AccountSessionGate: @unchecked Sendable {
                 }
             }
 
-            let teams = try context.fetch(Team.fetchRequest())
+            let teamRequest: NSFetchRequest<Team> = Team.fetchRequest()
+            let teams = try context.fetch(teamRequest)
             var teamMatch: Team?
             for team in teams {
                 let isMatch = account.teamIdentifier != nil && team.identifier == account.teamIdentifier

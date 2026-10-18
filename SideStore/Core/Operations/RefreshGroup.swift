@@ -30,7 +30,11 @@ final class RefreshGroup: NSObject
     
     var activeTask: Task<Void, Never>?
     /// Cancelled together with this group. Used when install waits on an inner refresh group.
-    var linkedGroup: RefreshGroup?
+    private var linkedGroupStorage: RefreshGroup?
+    var linkedGroup: RefreshGroup? {
+        get { self.lock.withLock { self.linkedGroupStorage } }
+        set { self.lock.withLock { self.linkedGroupStorage = newValue } }
+    }
     private let lock = NSLock()
     
     init(dbContext: NSManagedObjectContext, sharedContext: SharedPipelineContext = SharedPipelineContext())

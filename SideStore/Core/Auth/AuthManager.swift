@@ -65,7 +65,7 @@ public final class AuthManager: @unchecked Sendable {
         keepSideSignHeaders: Bool = true,
         promoteRemaining: Bool = true
     ) async {
-        let body = {
+        if AccountSessionGate.depth > 0 {
             await self.signOutCurrent(
                 keepCertificate: keepCertificate,
                 keepAnisetteData: keepAnisetteData,
@@ -73,11 +73,16 @@ public final class AuthManager: @unchecked Sendable {
                 keepSideSignHeaders: keepSideSignHeaders,
                 promoteRemaining: promoteRemaining
             )
-        }
-        if AccountSessionGate.depth > 0 {
-            await body()
         } else {
-            try? await AccountSessionGate.shared.performExclusive(body)
+            try? await AccountSessionGate.shared.performExclusive {
+                await self.signOutCurrent(
+                    keepCertificate: keepCertificate,
+                    keepAnisetteData: keepAnisetteData,
+                    keepAnisetteHeaders: keepAnisetteHeaders,
+                    keepSideSignHeaders: keepSideSignHeaders,
+                    promoteRemaining: promoteRemaining
+                )
+            }
         }
     }
 
@@ -195,7 +200,7 @@ public final class AuthManager: @unchecked Sendable {
         skipResign: Bool = false,
         skipHowTos: Bool = false
     ) async throws -> SignInResult {
-        try await AccountSessionGate.shared.performExclusive {
+        return try await AccountSessionGate.shared.performExclusive {
             AppleAccountStore.shared.captureCurrentCredentials()
             do {
                 let result = try await self.performSignIn(
