@@ -1,0 +1,33 @@
+/* Simplified Chinese. Keys are the English strings used in code. */
+
+"%@ failed with code %@." = "%@ 失败，代码为 %@。";
+"%@ failed." = "%@ 失败。";
+"%@ returned unexpected output." = "%@ 返回了意外的输出。";
+"%@ timed out." = "%@ 超时。";
+"%@ unexpectedly quit." = "%@ 意外退出。";
+"1 day" = "1 天";
+"Choose which app to display." = "选择要显示的 App。";
+"day" = "天";
+"DAYS" = "天";
+"days" = "天";
+"Debug Description" = "调试描述";
+"Error Description" = "错误描述";
+"Expired" = "已过期";
+"Expires in\n" = "剩余\n";
+"Failure" = "失败";
+"Failure Reason" = "失败原因";
+"Launch app to update widget" = "打开 App 以更新小组件";
+"Open SideStore" = "打开 SideStore";
+"Page Navigation Intent" = "页面导航意图";
+"Recovery Suggestion" = "恢复建议";
+"Refresh Apps via Widget" = "通过小组件刷新 App";
+"Select App" = "选择 App";
+"Source File" = "源文件";
+"Source Line" = "源代码行";
+"The process" = "该进程";
+"The process '%@'" = "进程“%@”";
+"Title" = "标题";
+"Underlying Error" = "底层错误";
+"Underlying Errors" = "底层错误";
+"Unsupported iOS" = "不受支持的 iOS";
+"Widget ID update Intent" = "小组件 ID 更新意图";

@@ -1,0 +1,2 @@
+/* English is the development language: the keys in code are the English strings.
+   This table exists so English stays the fallback for languages SideStore isn't translated into. */
