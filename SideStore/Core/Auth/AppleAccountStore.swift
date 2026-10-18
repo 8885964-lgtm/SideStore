@@ -3,7 +3,7 @@
 //  SideStore
 //
 //  Keeps every signed-in Apple ID in the same keychain the single-account
-//  flow already uses. The legacy keys remain the active account.
+//  flow already uses. The legacy keys remain the signed-in account.
 //
 
 import Foundation
@@ -18,9 +18,6 @@ struct StoredAppleAccount: Equatable, Hashable, Sendable {
     var teamIdentifier: String?
     var teamName: String?
     var teamTypeRaw: Int?
-    var hasPassword: Bool
-    var hasToken: Bool
-    var hasCertificate: Bool
 
     var teamType: ALTTeamType? {
         guard let teamTypeRaw else { return nil }
@@ -32,6 +29,8 @@ final class AppleAccountStore: @unchecked Sendable {
     static let shared = AppleAccountStore()
     static let didChangeNotification = Notification.Name("io.sidestore.AppleAccountStore.didChange")
 
+    private static let fields = ["password", "adsid", "xcodeToken", "cert", "certPassword", "teamID", "teamName", "teamType", "accountID", "firstName", "lastName"]
+
     private let lock = NSLock()
     private let indexKey = "appleAccountsIndex"
 
@@ -41,10 +40,21 @@ final class AppleAccountStore: @unchecked Sendable {
         self.lock.unlock()
     }
 
+    /// The Apple ID in the signed-in keychain slots, including one signed in for a single batch.
     var activeAppleID: String? {
-        let email = Keychain.shared.appleIDEmailAddress?.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let email, !email.isEmpty else { return nil }
-        return email
+        Self.normalized(Keychain.shared.appleIDEmailAddress)
+    }
+
+    func storedAppleIDs() -> [String] {
+        self.lock.lock()
+        defer { self.lock.unlock() }
+        return self.readIndex()
+    }
+
+    func contains(_ appleID: String) -> Bool {
+        self.lock.lock()
+        defer { self.lock.unlock() }
+        return self.canonicalAppleID(matching: appleID) != nil
     }
 
     func accounts() -> [StoredAppleAccount] {
@@ -60,111 +70,58 @@ final class AppleAccountStore: @unchecked Sendable {
         return self.readAccount(appleID: canonical)
     }
 
-    func password(for appleID: String) -> String? {
+    /// The keychain values that sign `account` in.
+    func slots(for account: StoredAppleAccount) -> KeychainAccountSlots {
         self.lock.lock()
         defer { self.lock.unlock() }
-        guard let canonical = self.canonicalAppleID(matching: appleID) else { return nil }
-        return Keychain.shared.storedString(for: self.key(canonical, "password"))
+        let appleID = self.canonicalAppleID(matching: account.appleID) ?? account.appleID
+        return KeychainAccountSlots(
+            appleIDEmailAddress: appleID,
+            appleIDPassword: Keychain.shared.storedString(for: self.key(appleID, "password")),
+            appleIDAdsid: Keychain.shared.storedString(for: self.key(appleID, "adsid")),
+            appleIDXcodeToken: Keychain.shared.storedString(for: self.key(appleID, "xcodeToken")),
+            signingCertificate: Keychain.shared.storedData(for: self.key(appleID, "cert")),
+            signingCertificatePassword: Keychain.shared.storedString(for: self.key(appleID, "certPassword"))
+        )
     }
 
-    func adsid(for appleID: String) -> String? {
-        self.lock.lock()
-        defer { self.lock.unlock() }
-        guard let canonical = self.canonicalAppleID(matching: appleID) else { return nil }
-        return Keychain.shared.storedString(for: self.key(canonical, "adsid"))
-    }
-
-    func xcodeToken(for appleID: String) -> String? {
-        self.lock.lock()
-        defer { self.lock.unlock() }
-        guard let canonical = self.canonicalAppleID(matching: appleID) else { return nil }
-        return Keychain.shared.storedString(for: self.key(canonical, "xcodeToken"))
-    }
-
-    func certificateData(for appleID: String) -> Data? {
-        self.lock.lock()
-        defer { self.lock.unlock() }
-        guard let canonical = self.canonicalAppleID(matching: appleID) else { return nil }
-        return Keychain.shared.storedData(for: self.key(canonical, "cert"))
-    }
-
-    func certificatePassword(for appleID: String) -> String? {
-        self.lock.lock()
-        defer { self.lock.unlock() }
-        guard let canonical = self.canonicalAppleID(matching: appleID) else { return nil }
-        return Keychain.shared.storedString(for: self.key(canonical, "certPassword"))
-    }
-
-    /// Copies the active legacy keychain account (and its Core Data team, when the store is loaded) into the multi-account index.
+    /// Copies the signed-in keychain slots (and the database's active team, when it belongs to them) into the store.
     func captureCurrentCredentials(postNotification: Bool = true) {
-        guard let email = self.activeAppleID else { return }
+        let slots = Keychain.shared.accountSlots
+        guard let email = Self.normalized(slots.appleIDEmailAddress) else { return }
         let snapshot = self.databaseSnapshot(for: email)
+
         self.lock.lock()
-        let existing = self.readAccount(appleID: email)
-        let record = StoredAppleAccount(
-            appleID: email,
+        let appleID = self.canonicalAppleID(matching: email) ?? email
+        let existing = self.readAccount(appleID: appleID)
+        self.writeSecrets(slots, appleID: appleID)
+        self.writeMetadata(StoredAppleAccount(
+            appleID: appleID,
             accountIdentifier: snapshot?.accountIdentifier ?? existing?.accountIdentifier,
             firstName: snapshot?.firstName ?? existing?.firstName,
             lastName: snapshot?.lastName ?? existing?.lastName,
             teamIdentifier: snapshot?.teamIdentifier ?? existing?.teamIdentifier,
             teamName: snapshot?.teamName ?? existing?.teamName,
-            teamTypeRaw: snapshot?.teamTypeRaw ?? existing?.teamTypeRaw,
-            hasPassword: Keychain.shared.appleIDPassword != nil,
-            hasToken: Keychain.shared.appleIDXcodeToken != nil,
-            hasCertificate: Keychain.shared.signingCertificate != nil
-        )
-        self.writeSecrets(
-            appleID: email,
-            password: Keychain.shared.appleIDPassword,
-            adsid: Keychain.shared.appleIDAdsid,
-            xcodeToken: Keychain.shared.appleIDXcodeToken,
-            certificate: Keychain.shared.signingCertificate,
-            certificatePassword: Keychain.shared.signingCertificatePassword
-        )
-        self.writeMetadata(record)
-        self.insertIndex(email)
+            teamTypeRaw: snapshot?.teamTypeRaw ?? existing?.teamTypeRaw
+        ))
+        self.insertIndex(appleID)
         self.lock.unlock()
+
         if postNotification {
             self.postChange()
         }
     }
 
-    /// Persists the active signing certificate onto whichever Apple ID is currently in the legacy keychain slot.
+    /// Persists the active signing certificate onto whichever stored Apple ID is signed in.
     func captureActiveCertificate() {
-        guard let email = self.activeAppleID else { return }
-        self.lock.lock()
-        guard self.readIndex().contains(where: { self.same($0, email) }) else {
-            self.lock.unlock()
-            return
-        }
-        let canonical = self.canonicalAppleID(matching: email) ?? email
-        Keychain.shared.setStoredData(Keychain.shared.signingCertificate, for: self.key(canonical, "cert"))
-        Keychain.shared.setStoredString(Keychain.shared.signingCertificatePassword, for: self.key(canonical, "certPassword"))
-        self.lock.unlock()
-    }
+        let slots = Keychain.shared.accountSlots
+        guard let email = Self.normalized(slots.appleIDEmailAddress) else { return }
 
-    /// Writes a stored account into the legacy single-account keychain slots and reloads the in-memory certificate.
-    func applyToLegacyKeychain(_ account: StoredAppleAccount) {
         self.lock.lock()
-        let canonical = self.canonicalAppleID(matching: account.appleID) ?? account.appleID
-        let password = Keychain.shared.storedString(for: self.key(canonical, "password"))
-        let adsid = Keychain.shared.storedString(for: self.key(canonical, "adsid"))
-        let token = Keychain.shared.storedString(for: self.key(canonical, "xcodeToken"))
-        let certificate = Keychain.shared.storedData(for: self.key(canonical, "cert"))
-        let certificatePassword = Keychain.shared.storedString(for: self.key(canonical, "certPassword"))
-        self.lock.unlock()
-
-        Keychain.shared.appleIDEmailAddress = canonical
-        Keychain.shared.appleIDPassword = password
-        Keychain.shared.appleIDAdsid = adsid
-        Keychain.shared.appleIDXcodeToken = token
-        if let certificate {
-            Keychain.shared.signingCertificate = certificate
-            Keychain.shared.signingCertificatePassword = certificatePassword
-            try? CertificateManager.shared.loadActiveCertificate()
-        } else {
-            CertificateManager.shared.clearActiveCertificate()
-        }
+        defer { self.lock.unlock() }
+        guard let appleID = self.canonicalAppleID(matching: email) else { return }
+        self.write(slots.signingCertificate, forKey: self.key(appleID, "cert"))
+        self.write(slots.signingCertificatePassword, forKey: self.key(appleID, "certPassword"))
     }
 
     func remove(appleID: String) {
@@ -173,68 +130,76 @@ final class AppleAccountStore: @unchecked Sendable {
             self.lock.unlock()
             return
         }
-        for field in Self.fields {
-            if field == "cert" {
-                Keychain.shared.setStoredData(nil, for: self.key(canonical, field))
-            } else {
-                Keychain.shared.setStoredString(nil, for: self.key(canonical, field))
-            }
-        }
-        let updated = self.readIndex().filter { !self.same($0, canonical) }
-        self.writeIndex(updated)
+        self.removeEntries(for: canonical)
+        self.writeIndex(self.readIndex().filter { !self.same($0, canonical) })
         self.lock.unlock()
         self.postChange()
     }
 
-    private static let fields = ["password", "adsid", "xcodeToken", "cert", "certPassword", "teamID", "teamName", "teamType", "accountID", "firstName", "lastName"]
+    func removeAll() {
+        self.lock.lock()
+        let appleIDs = self.readIndex()
+        for appleID in appleIDs {
+            self.removeEntries(for: appleID)
+        }
+        Keychain.shared.setStoredString(nil, for: self.indexKey)
+        self.lock.unlock()
+
+        if !appleIDs.isEmpty {
+            self.postChange()
+        }
+    }
 
     private func importLegacyAccountIfNeeded() {
-        guard self.readIndex().isEmpty, let email = Keychain.shared.appleIDEmailAddress, !email.isEmpty else { return }
-        self.writeSecrets(
-            appleID: email,
-            password: Keychain.shared.appleIDPassword,
-            adsid: Keychain.shared.appleIDAdsid,
-            xcodeToken: Keychain.shared.appleIDXcodeToken,
-            certificate: Keychain.shared.signingCertificate,
-            certificatePassword: Keychain.shared.signingCertificatePassword
-        )
-        self.writeMetadata(StoredAppleAccount(
-            appleID: email,
-            accountIdentifier: nil,
-            firstName: nil,
-            lastName: nil,
-            teamIdentifier: nil,
-            teamName: nil,
-            teamTypeRaw: nil,
-            hasPassword: Keychain.shared.appleIDPassword != nil,
-            hasToken: Keychain.shared.appleIDXcodeToken != nil,
-            hasCertificate: Keychain.shared.signingCertificate != nil
-        ))
+        guard self.readIndex().isEmpty else { return }
+        let slots = Keychain.shared.accountSlots
+        guard let email = Self.normalized(slots.appleIDEmailAddress) else { return }
+        self.writeSecrets(slots, appleID: email)
         self.writeIndex([email])
     }
 
-    private func writeSecrets(appleID: String, password: String?, adsid: String?, xcodeToken: String?, certificate: Data?, certificatePassword: String?) {
-        Keychain.shared.setStoredString(password, for: self.key(appleID, "password"))
-        Keychain.shared.setStoredString(adsid, for: self.key(appleID, "adsid"))
-        Keychain.shared.setStoredString(xcodeToken, for: self.key(appleID, "xcodeToken"))
-        Keychain.shared.setStoredData(certificate, for: self.key(appleID, "cert"))
-        Keychain.shared.setStoredString(certificatePassword, for: self.key(appleID, "certPassword"))
+    private func writeSecrets(_ slots: KeychainAccountSlots, appleID: String) {
+        self.write(slots.appleIDPassword, forKey: self.key(appleID, "password"))
+        self.write(slots.appleIDAdsid, forKey: self.key(appleID, "adsid"))
+        self.write(slots.appleIDXcodeToken, forKey: self.key(appleID, "xcodeToken"))
+        self.write(slots.signingCertificate, forKey: self.key(appleID, "cert"))
+        self.write(slots.signingCertificatePassword, forKey: self.key(appleID, "certPassword"))
     }
 
     private func writeMetadata(_ account: StoredAppleAccount) {
-        Keychain.shared.setStoredString(account.accountIdentifier, for: self.key(account.appleID, "accountID"))
-        Keychain.shared.setStoredString(account.firstName, for: self.key(account.appleID, "firstName"))
-        Keychain.shared.setStoredString(account.lastName, for: self.key(account.appleID, "lastName"))
-        Keychain.shared.setStoredString(account.teamIdentifier, for: self.key(account.appleID, "teamID"))
-        Keychain.shared.setStoredString(account.teamName, for: self.key(account.appleID, "teamName"))
+        self.write(account.accountIdentifier, forKey: self.key(account.appleID, "accountID"))
+        self.write(account.firstName, forKey: self.key(account.appleID, "firstName"))
+        self.write(account.lastName, forKey: self.key(account.appleID, "lastName"))
+        self.write(account.teamIdentifier, forKey: self.key(account.appleID, "teamID"))
+        self.write(account.teamName, forKey: self.key(account.appleID, "teamName"))
         if let teamTypeRaw = account.teamTypeRaw {
-            Keychain.shared.setStoredString(String(teamTypeRaw), for: self.key(account.appleID, "teamType"))
+            self.write(String(teamTypeRaw), forKey: self.key(account.appleID, "teamType"))
         }
+    }
+
+    private func removeEntries(for appleID: String) {
+        for field in Self.fields {
+            if field == "cert" {
+                Keychain.shared.setStoredData(nil, for: self.key(appleID, field))
+            } else {
+                Keychain.shared.setStoredString(nil, for: self.key(appleID, field))
+            }
+        }
+    }
+
+    // Unchanged values are skipped so captures don't rewrite synchronizable keychain items.
+    private func write(_ value: String?, forKey key: String) {
+        guard Keychain.shared.storedString(for: key) != value else { return }
+        Keychain.shared.setStoredString(value, for: key)
+    }
+
+    private func write(_ value: Data?, forKey key: String) {
+        guard Keychain.shared.storedData(for: key) != value else { return }
+        Keychain.shared.setStoredData(value, for: key)
     }
 
     private func readAccount(appleID: String) -> StoredAppleAccount? {
         guard self.readIndex().contains(where: { self.same($0, appleID) }) else { return nil }
-        let teamType = Keychain.shared.storedString(for: self.key(appleID, "teamType")).flatMap { Int($0) }
         return StoredAppleAccount(
             appleID: appleID,
             accountIdentifier: Keychain.shared.storedString(for: self.key(appleID, "accountID")),
@@ -242,31 +207,29 @@ final class AppleAccountStore: @unchecked Sendable {
             lastName: Keychain.shared.storedString(for: self.key(appleID, "lastName")),
             teamIdentifier: Keychain.shared.storedString(for: self.key(appleID, "teamID")),
             teamName: Keychain.shared.storedString(for: self.key(appleID, "teamName")),
-            teamTypeRaw: teamType,
-            hasPassword: Keychain.shared.storedString(for: self.key(appleID, "password")) != nil,
-            hasToken: Keychain.shared.storedString(for: self.key(appleID, "xcodeToken")) != nil,
-            hasCertificate: Keychain.shared.storedData(for: self.key(appleID, "cert")) != nil
+            teamTypeRaw: Keychain.shared.storedString(for: self.key(appleID, "teamType")).flatMap { Int($0) }
         )
     }
 
     private func readIndex() -> [String] {
         guard let raw = Keychain.shared.storedString(for: self.indexKey),
               let data = raw.data(using: .utf8),
-              let emails = try? JSONDecoder().decode([String].self, from: data) else {
+              let appleIDs = try? JSONDecoder().decode([String].self, from: data) else {
             return []
         }
-        return emails
+        return appleIDs
     }
 
-    private func writeIndex(_ emails: [String]) {
-        guard let data = try? JSONEncoder().encode(emails), let raw = String(data: data, encoding: .utf8) else { return }
-        Keychain.shared.setStoredString(raw, for: self.indexKey)
+    private func writeIndex(_ appleIDs: [String]) {
+        guard let data = try? JSONEncoder().encode(appleIDs), let raw = String(data: data, encoding: .utf8) else { return }
+        self.write(raw, forKey: self.indexKey)
     }
 
-    private func insertIndex(_ email: String) {
-        var emails = self.readIndex().filter { !self.same($0, email) }
-        emails.append(email)
-        self.writeIndex(emails)
+    private func insertIndex(_ appleID: String) {
+        var appleIDs = self.readIndex()
+        guard !appleIDs.contains(where: { self.same($0, appleID) }) else { return }
+        appleIDs.append(appleID)
+        self.writeIndex(appleIDs)
     }
 
     private func canonicalAppleID(matching appleID: String) -> String? {
@@ -277,8 +240,8 @@ final class AppleAccountStore: @unchecked Sendable {
         lhs.trimmingCharacters(in: .whitespacesAndNewlines).caseInsensitiveCompare(rhs.trimmingCharacters(in: .whitespacesAndNewlines)) == .orderedSame
     }
 
-    private func key(_ email: String, _ field: String) -> String {
-        let lowered = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    private func key(_ appleID: String, _ field: String) -> String {
+        let lowered = appleID.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let slot = lowered.unicodeScalars.map { scalar -> Character in
             CharacterSet.alphanumerics.contains(scalar) ? Character(scalar) : "_"
         }
@@ -287,6 +250,11 @@ final class AppleAccountStore: @unchecked Sendable {
 
     private func postChange() {
         NotificationCenter.default.post(name: Self.didChangeNotification, object: nil)
+    }
+
+    private static func normalized(_ appleID: String?) -> String? {
+        guard let trimmed = appleID?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else { return nil }
+        return trimmed
     }
 
     private struct DatabaseSnapshot {

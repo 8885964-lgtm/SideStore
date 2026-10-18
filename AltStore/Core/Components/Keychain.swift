@@ -17,6 +17,11 @@ public struct KeychainItem<Value>
     
     public var wrappedValue: Value? {
         get {
+            if let overridden = Keychain.shared.accountOverrideValue(forKey: self.key)
+            {
+                return overridden.value as? Value
+            }
+            
             switch Value.self
             {
             case is Data.Type: return try? Keychain.shared.keychain.getData(self.key) as? Value
@@ -25,6 +30,11 @@ public struct KeychainItem<Value>
             }
         }
         set {
+            if Keychain.shared.setAccountOverrideValue(newValue, forKey: self.key)
+            {
+                return
+            }
+            
             switch Value.self
             {
             case is Data.Type: Keychain.shared.keychain[data: self.key] = newValue as? Data
@@ -38,6 +48,35 @@ public struct KeychainItem<Value>
     {
         self.key = key
     }
+}
+
+/// The keychain values that make up one Apple ID sign-in.
+struct KeychainAccountSlots: Equatable
+{
+    var appleIDEmailAddress: String?
+    var appleIDPassword: String?
+    var appleIDAdsid: String?
+    var appleIDXcodeToken: String?
+    var signingCertificate: Data?
+    var signingCertificatePassword: String?
+}
+
+// Must match the @KeychainItem keys of the Apple ID properties in Keychain.
+private enum KeychainAccountKey
+{
+    static let email = "appleIDEmailAddress"
+    static let password = "appleIDPassword"
+    static let adsid = "appleIDAdsid"
+    static let xcodeToken = "appleIDXcodeToken"
+    static let certificate = "signingCertificate"
+    static let certificatePassword = "signingCertificatePassword"
+    
+    static let all: Set<String> = [email, password, adsid, xcodeToken, certificate, certificatePassword]
+}
+
+private struct KeychainOverrideValue
+{
+    let value: Any?
 }
 
 public class Keychain
@@ -202,5 +241,127 @@ public class Keychain
         } else {
             try? self.keychain.remove(key)
         }
+    }
+    
+    // MARK: - Account override
+    //
+    // While an override is active, the Apple ID keys read and write memory instead of the keychain,
+    // so another Apple ID can sign a batch without the stored sign-in changing (or syncing) underneath.
+    
+    private let accountOverrideLock = NSLock()
+    private var accountOverride: [String: Any]?
+    
+    var isAccountOverrideActive: Bool
+    {
+        self.accountOverrideLock.lock()
+        defer { self.accountOverrideLock.unlock() }
+        return self.accountOverride != nil
+    }
+    
+    /// The Apple ID keys as the app currently sees them, including an active override.
+    var accountSlots: KeychainAccountSlots
+    {
+        self.accountOverrideLock.lock()
+        defer { self.accountOverrideLock.unlock() }
+        
+        if let values = self.accountOverride
+        {
+            return Keychain.slots(fromOverride: values)
+        }
+        
+        return KeychainAccountSlots(
+            appleIDEmailAddress: try? self.keychain.getString(KeychainAccountKey.email),
+            appleIDPassword: try? self.keychain.getString(KeychainAccountKey.password),
+            appleIDAdsid: try? self.keychain.getString(KeychainAccountKey.adsid),
+            appleIDXcodeToken: try? self.keychain.getString(KeychainAccountKey.xcodeToken),
+            signingCertificate: try? self.keychain.getData(KeychainAccountKey.certificate),
+            signingCertificatePassword: try? self.keychain.getString(KeychainAccountKey.certificatePassword)
+        )
+    }
+    
+    /// Replaces every Apple ID key at once, in the override when one is active.
+    func setAccountSlots(_ slots: KeychainAccountSlots)
+    {
+        self.accountOverrideLock.lock()
+        defer { self.accountOverrideLock.unlock() }
+        
+        if self.accountOverride != nil
+        {
+            self.accountOverride = Keychain.overrideValues(for: slots)
+            return
+        }
+        
+        self.keychain[KeychainAccountKey.email] = slots.appleIDEmailAddress
+        self.keychain[KeychainAccountKey.password] = slots.appleIDPassword
+        self.keychain[KeychainAccountKey.adsid] = slots.appleIDAdsid
+        self.keychain[KeychainAccountKey.xcodeToken] = slots.appleIDXcodeToken
+        self.keychain[data: KeychainAccountKey.certificate] = slots.signingCertificate
+        self.keychain[KeychainAccountKey.certificatePassword] = slots.signingCertificatePassword
+    }
+    
+    func beginAccountOverride(_ slots: KeychainAccountSlots)
+    {
+        self.accountOverrideLock.lock()
+        defer { self.accountOverrideLock.unlock() }
+        self.accountOverride = Keychain.overrideValues(for: slots)
+    }
+    
+    /// Ends the override and returns the values it ended with.
+    @discardableResult
+    func endAccountOverride() -> KeychainAccountSlots?
+    {
+        self.accountOverrideLock.lock()
+        defer { self.accountOverrideLock.unlock() }
+        
+        guard let values = self.accountOverride else { return nil }
+        self.accountOverride = nil
+        return Keychain.slots(fromOverride: values)
+    }
+    
+    fileprivate func accountOverrideValue(forKey key: String) -> KeychainOverrideValue?
+    {
+        guard KeychainAccountKey.all.contains(key) else { return nil }
+        
+        self.accountOverrideLock.lock()
+        defer { self.accountOverrideLock.unlock() }
+        
+        guard let values = self.accountOverride else { return nil }
+        return KeychainOverrideValue(value: values[key])
+    }
+    
+    fileprivate func setAccountOverrideValue(_ value: Any?, forKey key: String) -> Bool
+    {
+        guard KeychainAccountKey.all.contains(key) else { return false }
+        
+        self.accountOverrideLock.lock()
+        defer { self.accountOverrideLock.unlock() }
+        
+        guard self.accountOverride != nil else { return false }
+        self.accountOverride?[key] = value
+        return true
+    }
+    
+    private static func overrideValues(for slots: KeychainAccountSlots) -> [String: Any]
+    {
+        var values = [String: Any]()
+        values[KeychainAccountKey.email] = slots.appleIDEmailAddress
+        values[KeychainAccountKey.password] = slots.appleIDPassword
+        values[KeychainAccountKey.adsid] = slots.appleIDAdsid
+        values[KeychainAccountKey.xcodeToken] = slots.appleIDXcodeToken
+        values[KeychainAccountKey.certificate] = slots.signingCertificate
+        values[KeychainAccountKey.certificatePassword] = slots.signingCertificatePassword
+        return values
+    }
+    
+    private static func slots(fromOverride values: [String: Any]) -> KeychainAccountSlots
+    {
+        KeychainAccountSlots(
+            appleIDEmailAddress: values[KeychainAccountKey.email] as? String,
+            appleIDPassword: values[KeychainAccountKey.password] as? String,
+            appleIDAdsid: values[KeychainAccountKey.adsid] as? String,
+            appleIDXcodeToken: values[KeychainAccountKey.xcodeToken] as? String,
+            signingCertificate: values[KeychainAccountKey.certificate] as? Data,
+            signingCertificatePassword: values[KeychainAccountKey.certificatePassword] as? String
+        )
     }
 }

@@ -373,6 +373,7 @@ public class DatabaseManager: @unchecked Sendable
             try context.save()
         }
 
+        await AccountSessionGate.restoreInterruptedChangeIfNeeded()
         AppleAccountStore.shared.captureCurrentCredentials()
         
         await self.updateFeaturedSortIDs()

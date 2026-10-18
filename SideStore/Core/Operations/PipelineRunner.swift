@@ -47,9 +47,11 @@ final class PipelineRunner: Sendable
     func performSingleOperation(_ operation: AppOperation,
                                 handler: PipelineExecutionHandler,
                                 dbContext: NSManagedObjectContext,
+                                signingAppleID: String? = nil,
                                 completionHandler: @escaping (Result<InstalledApp, Error>) -> Void) -> RefreshGroup
     {
         let group = RefreshGroup(dbContext: dbContext)
+        group.signingAppleID = signingAppleID
         group.completionHandler = { (results) in
             do
             {
@@ -106,9 +108,8 @@ final class PipelineRunner: Sendable
         let operations = operations.filter { progress.progress(for: $0) == nil || progress.progress(for: $0)?.isCancelled == true }
         guard !operations.isEmpty else { throw OperationError.cancelled }
 
-        if AccountSessionGate.depth == 0,
-           let appleID = SigningAccountResolver.appleID(for: operations),
-           AccountSessionGate.shared.requiresSwitch(to: appleID) {
+        if AccountSessionGate.holding == nil {
+            let appleID = group.signingAppleID ?? SigningAccountResolver.appleID(for: operations)
             return try await AccountSessionGate.shared.perform(appleID: appleID) {
                 try await self.perform(operations, handler: handler, group: group)
             }

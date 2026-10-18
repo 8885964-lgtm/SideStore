@@ -187,6 +187,8 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
                 
                 if isFirstLaunch
                 {
+                    // Keychain items outlive a reinstall; start without any stored Apple ID, as before.
+                    AppleAccountStore.shared.removeAll()
                     await AuthManager.shared.signOut()
                 }
 

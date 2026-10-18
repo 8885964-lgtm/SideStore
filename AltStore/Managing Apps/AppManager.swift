@@ -449,9 +449,9 @@ final class AppManager: ObservableObject, @unchecked Sendable
                  context: StandaloneOperationContext? = nil,
                  completionHandler: @escaping (Result<InstalledApp, Error>) -> Void) -> RefreshGroup
     {
-        let signedInAccounts = AppleAccountStore.shared.accounts()
-        guard signedInAccounts.count > 1, let presentingViewController else {
-            return self.installWithActiveAccount(
+        // Sign-in flows pass their own context and install with the Apple ID that just signed in.
+        guard AppleAccountStore.shared.storedAppleIDs().count > 1, context == nil, let presentingViewController else {
+            return self.startInstall(
                 target,
                 presentingViewController: presentingViewController,
                 dbBackgroundContext: dbBackgroundContext,
@@ -460,48 +460,46 @@ final class AppManager: ObservableObject, @unchecked Sendable
             )
         }
 
-        debugLog("[AppManager] install() prompting for Apple ID. \(signedInAccounts.count) accounts are signed in.")
-        let dbContext = self.getValidDbContext(dbBackgroundContext ?? context?.dbBackgroundContext)
+        debugLog("[AppManager] install() asking which Apple ID should sign \(target).")
+        let appName: String
+        switch target {
+        case .app(let app): appName = app.name
+        case .url(let url): appName = url.deletingPathExtension().lastPathComponent
+        }
+        let dbContext = self.getValidDbContext(dbBackgroundContext)
         let group = RefreshGroup(dbContext: dbContext)
         group.activeTask = Task {
-            let choice = await AppleAccountPicker.choose(from: presentingViewController)
-            guard let choice else {
+            let choice = await AppleAccountPicker.choose(from: presentingViewController, appName: appName)
+            guard let choice, !Task.isCancelled, !group.progress.isCancelled else {
                 await MainActor.run {
                     completionHandler(.failure(CancellationError()))
                 }
                 return
             }
-            do {
-                try await AccountSessionGate.shared.perform(appleID: choice) {
-                    await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-                        let inner = self.installWithActiveAccount(
-                            target,
-                            presentingViewController: presentingViewController,
-                            dbBackgroundContext: dbContext,
-                            context: context
-                        ) { result in
-                            completionHandler(result)
-                            continuation.resume()
-                        }
-                        group.linkedGroup = inner
-                        group.progress.addChild(inner.progress, withPendingUnitCount: 100)
-                    }
+            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                let inner = self.startInstall(
+                    target,
+                    presentingViewController: presentingViewController,
+                    dbBackgroundContext: dbContext,
+                    signingAppleID: choice
+                ) { result in
+                    completionHandler(result)
+                    continuation.resume()
                 }
-            } catch {
-                await MainActor.run {
-                    completionHandler(.failure(error))
-                }
+                group.linkedGroup = inner
+                group.progress.addChild(inner.progress, withPendingUnitCount: 100)
             }
         }
         return group
     }
 
     @discardableResult
-    private func installWithActiveAccount(_ target: InstallTarget,
-                                          presentingViewController: UIViewController? = nil,
-                                          dbBackgroundContext: NSManagedObjectContext? = nil,
-                                          context: StandaloneOperationContext? = nil,
-                                          completionHandler: @escaping (Result<InstalledApp, Error>) -> Void) -> RefreshGroup
+    private func startInstall(_ target: InstallTarget,
+                              presentingViewController: UIViewController? = nil,
+                              dbBackgroundContext: NSManagedObjectContext? = nil,
+                              context: StandaloneOperationContext? = nil,
+                              signingAppleID: String? = nil,
+                              completionHandler: @escaping (Result<InstalledApp, Error>) -> Void) -> RefreshGroup
     {
         debugLog("[AppManager] install() called for target: \(target)")
         let pipelineHandler = self.makePipelineHandler(presentingViewController: presentingViewController)
@@ -512,6 +510,7 @@ final class AppManager: ObservableObject, @unchecked Sendable
             .install(app),
             handler: pipelineHandler,
             dbContext: dbContext,
+            signingAppleID: signingAppleID,
             completionHandler: { result in
                 if case .success(let installedApp) = result,
                    UserDefaults.standard.isAutoLaunchAppAfterInstallEnabled,
@@ -592,10 +591,12 @@ final class AppManager: ObservableObject, @unchecked Sendable
         }
         let pipelineHandler = self.makePipelineHandler(presentingViewController: presentingViewController)
         let dbContext = self.getValidDbContext()
+        let signingAppleID = SigningAccountResolver.appleID(for: installedApp)
         let group = self.pipelineRunner.performSingleOperation(
             .update(appVersion, customBundleIdentifier: installedApp.customBundleIdentifier), 
             handler: pipelineHandler, 
             dbContext: dbContext, 
+            signingAppleID: signingAppleID.isEmpty ? nil : signingAppleID,
             completionHandler: completionHandler
         )
         return group.progress

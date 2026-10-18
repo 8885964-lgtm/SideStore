@@ -20,8 +20,26 @@ public final class AuthManager: @unchecked Sendable {
     
     private init() {}
     
-    private var team: ALTTeam?
-    private var session: ALTAppleAPISession?
+    private let cacheLock = NSLock()
+    private var cachedTeam: ALTTeam?
+    private var cachedSession: ALTAppleAPISession?
+    // Bumped whenever the cached team is replaced, so a slower lookup can't overwrite a newer team.
+    private var teamGeneration = 0
+    
+    private var team: ALTTeam? {
+        get { self.cacheLock.withLock { self.cachedTeam } }
+        set {
+            self.cacheLock.withLock {
+                self.cachedTeam = newValue
+                self.teamGeneration += 1
+            }
+        }
+    }
+    
+    private var session: ALTAppleAPISession? {
+        get { self.cacheLock.withLock { self.cachedSession } }
+        set { self.cacheLock.withLock { self.cachedSession = newValue } }
+    }
 
     public var isAuthenticated: Bool {
         let hasEmail = Keychain.shared.appleIDEmailAddress != nil
@@ -65,24 +83,29 @@ public final class AuthManager: @unchecked Sendable {
         keepSideSignHeaders: Bool = true,
         promoteRemaining: Bool = true
     ) async {
-        if AccountSessionGate.depth > 0 {
+        // A reset anisette identity needs fresh sign-ins, so no other stored Apple ID is signed in in its place.
+        let promotes = promoteRemaining && keepAnisetteData
+        
+        if let holding = AccountSessionGate.holding {
             await self.signOutCurrent(
                 keepCertificate: keepCertificate,
                 keepAnisetteData: keepAnisetteData,
                 keepAnisetteHeaders: keepAnisetteHeaders,
                 keepSideSignHeaders: keepSideSignHeaders,
-                promoteRemaining: promoteRemaining
+                promoteRemaining: promotes && holding == .exclusive && !Keychain.shared.isAccountOverrideActive
             )
-        } else {
-            try? await AccountSessionGate.shared.performExclusive {
-                await self.signOutCurrent(
-                    keepCertificate: keepCertificate,
-                    keepAnisetteData: keepAnisetteData,
-                    keepAnisetteHeaders: keepAnisetteHeaders,
-                    keepSideSignHeaders: keepSideSignHeaders,
-                    promoteRemaining: promoteRemaining
-                )
-            }
+            return
+        }
+        
+        let access: AccountSessionGate.Access = (promotes && AppleAccountStore.shared.storedAppleIDs().count > 1) ? .exclusive : .credentials
+        await AccountSessionGate.shared.withAccess(access) {
+            await self.signOutCurrent(
+                keepCertificate: keepCertificate,
+                keepAnisetteData: keepAnisetteData,
+                keepAnisetteHeaders: keepAnisetteHeaders,
+                keepSideSignHeaders: keepSideSignHeaders,
+                promoteRemaining: access == .exclusive
+            )
         }
     }
 
@@ -126,17 +149,19 @@ public final class AuthManager: @unchecked Sendable {
 
         AnisetteDataManager.shared.clearCache()
 
-        if promoteRemaining, let next = AppleAccountStore.shared.accounts().first {
-            try? await AccountSessionGate.shared.activate(next.appleID, notify: true)
+        if promoteRemaining, let next = AppleAccountStore.shared.storedAppleIDs().first {
+            await AccountSessionGate.shared.promote(next)
         }
     }
     
     @discardableResult
     public func getAuthenticatedSession() async throws -> ALTAppleAPISession {
-        let sessionKey = "apple_auth_session_\(self.adsid ?? "")"
-        return try await TaskChainCoalescer.shared.coalesce(key: sessionKey) {
-            guard let adsid = self.adsid,                           // directory services id
-                  let xcodeToken = self.xcodeToken else             // xcode token
+        // Read once so the session is built from the same Apple ID its coalescing key names.
+        let storedAdsid = self.adsid
+        let storedXcodeToken = self.xcodeToken
+        return try await TaskChainCoalescer.shared.coalesce(key: "apple_auth_session_\(storedAdsid ?? "")") {
+            guard let adsid = storedAdsid,                          // directory services id
+                  let xcodeToken = storedXcodeToken else            // xcode token
             {
                 debugLog("[AuthManager] No stored tokens found.")
                 throw OperationError.notAuthenticated
@@ -160,26 +185,38 @@ public final class AuthManager: @unchecked Sendable {
         self.team = nil
     }
 
-    /// Matches the free-account slot calculation used when an Apple ID is signed in.
-    public func applyActiveAppsLimit(for teamType: ALTTeamType) {
+    /// Serves `team` to pipeline work while another stored Apple ID is signed in for one batch.
+    func overrideCachedTeam(_ team: ALTTeam) {
+        self.session = nil
+        self.team = team
+    }
+
+    /// The free-account active app limit for a signed-in team of `teamType`, as set at sign-in.
+    public func activeAppsLimit(for teamType: ALTTeamType) -> Int? {
+        guard teamType == .free else { return nil }
         let isSparseRestorePatched = ProcessInfo().sparseRestorePatched
         let isAppLimitDisabled = UserDefaults.standard.isAppLimitDisabled
-        UserDefaults.standard.activeAppsLimit = nil
-        if teamType == .free {
-            if (!isAppLimitDisabled && isSparseRestorePatched) ||
-                (isAppLimitDisabled && !isSparseRestorePatched) {
-                UserDefaults.standard.activeAppsLimit = InstalledApp.freeAccountActiveAppsLimit
-            }
-        }
+        guard (!isAppLimitDisabled && isSparseRestorePatched) ||
+              (isAppLimitDisabled && !isSparseRestorePatched) else { return nil }
+        return InstalledApp.freeAccountActiveAppsLimit
+    }
+
+    public func applyActiveAppsLimit(for teamType: ALTTeamType) {
+        UserDefaults.standard.activeAppsLimit = self.activeAppsLimit(for: teamType)
     }
 
     public func getAuthenticatedTeam() async throws -> ALTTeam {
-        if let team = self.team {
-            return team
+        let (cachedTeam, generation) = self.cacheLock.withLock { (self.cachedTeam, self.teamGeneration) }
+        if let cachedTeam {
+            return cachedTeam
         }
         
         let team = try await self.resolveActiveTeam()
-        self.team = team
+        self.cacheLock.withLock {
+            if self.teamGeneration == generation {
+                self.cachedTeam = team
+            }
+        }
         return team
     }
 
@@ -200,7 +237,7 @@ public final class AuthManager: @unchecked Sendable {
         skipResign: Bool = false,
         skipHowTos: Bool = false
     ) async throws -> SignInResult {
-        return try await AccountSessionGate.shared.performExclusive {
+        return try await AccountSessionGate.shared.withAccess(.credentials) {
             AppleAccountStore.shared.captureCurrentCredentials()
             do {
                 let result = try await self.performSignIn(
@@ -218,6 +255,33 @@ public final class AuthManager: @unchecked Sendable {
                 }
                 throw error
             }
+        }
+    }
+
+    /// Signs in another Apple ID and makes it the signed-in one. The current Apple ID stays stored,
+    /// and is signed in again if this fails or is cancelled.
+    @discardableResult
+    func addAccount(presentingViewController: UIViewController?) async throws -> SignInResult {
+        return try await AccountSessionGate.shared.addAccount {
+            try await self.performSignIn(
+                presentingViewController: presentingViewController,
+                skipDeviceRegistration: false,
+                skipCertificateProvisioning: false,
+                // SideStore stays signed by the Apple ID that installed it.
+                skipResign: true,
+                skipHowTos: false
+            )
+        }
+    }
+
+    /// Forgets a stored Apple ID. Removing the signed-in one signs out and signs in the next stored Apple ID.
+    func removeAccount(_ appleID: String) async {
+        if let current = AppleAccountStore.shared.activeAppleID, current.caseInsensitiveCompare(appleID) == .orderedSame {
+            await self.signOut()
+            return
+        }
+        await AccountSessionGate.shared.withAccess(.credentials) {
+            AppleAccountStore.shared.remove(appleID: appleID)
         }
     }
 

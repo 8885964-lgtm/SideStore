@@ -118,17 +118,19 @@ class ImportExport {
             let decryptedData = try AES.GCM.open(sealedBox, using: key)
             let account = try Foundation.JSONDecoder().decode(ImportedAccount.self, from: decryptedData)
             
-            await AuthManager.shared.signOut(promoteRemaining: false)
-            AuthManager.shared.currentAppleID = account.email
-            if let pass = account.password, !pass.isEmpty {
-                AuthManager.shared.password = pass
+            try await AccountSessionGate.shared.withAccess(.credentials) {
+                await AuthManager.shared.signOut(promoteRemaining: false)
+                AuthManager.shared.currentAppleID = account.email
+                if let pass = account.password, !pass.isEmpty {
+                    AuthManager.shared.password = pass
+                }
+                AnisetteConfigManager.shared.anisetteAdiBlob = account.anisetteAdiBlob
+                AnisetteConfigManager.shared.anisetteIdentifier = account.anisetteIdentifier
+                
+                let altCert = try CertificateManager.parse(account.certificateData, password: account.certificatePassword)
+                try CertificateManager.shared.setActiveCertificate(altCert)
+                AppleAccountStore.shared.captureCurrentCredentials()
             }
-            AnisetteConfigManager.shared.anisetteAdiBlob = account.anisetteAdiBlob
-            AnisetteConfigManager.shared.anisetteIdentifier = account.anisetteIdentifier
-            
-            let altCert = try CertificateManager.parse(account.certificateData, password: account.certificatePassword)
-            try CertificateManager.shared.setActiveCertificate(altCert)
-            AppleAccountStore.shared.captureCurrentCredentials()
             
             return account
         } catch {
@@ -284,15 +286,17 @@ extension ImportExport {
         let accountData = try Data(contentsOf: file)
         let account = try Foundation.JSONDecoder().decode(ImportedAccount.self, from: accountData)
         
-        await AuthManager.shared.signOut(promoteRemaining: false)
-        AuthManager.shared.currentAppleID = account.email
-        AuthManager.shared.password = account.password
-        AnisetteConfigManager.shared.anisetteAdiBlob = account.anisetteAdiBlob
-        AnisetteConfigManager.shared.anisetteIdentifier = account.anisetteIdentifier
-        
-        let altCert = try CertificateManager.parse(account.certificateData, password: account.certificatePassword)
-        try CertificateManager.shared.setActiveCertificate(altCert)
-        AppleAccountStore.shared.captureCurrentCredentials()
+        try await AccountSessionGate.shared.withAccess(.credentials) {
+            await AuthManager.shared.signOut(promoteRemaining: false)
+            AuthManager.shared.currentAppleID = account.email
+            AuthManager.shared.password = account.password
+            AnisetteConfigManager.shared.anisetteAdiBlob = account.anisetteAdiBlob
+            AnisetteConfigManager.shared.anisetteIdentifier = account.anisetteIdentifier
+            
+            let altCert = try CertificateManager.parse(account.certificateData, password: account.certificatePassword)
+            try CertificateManager.shared.setActiveCertificate(altCert)
+            AppleAccountStore.shared.captureCurrentCredentials()
+        }
     }
 }
 #endif
