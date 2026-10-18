@@ -2616,7 +2616,14 @@ extension MyAppsViewController: UICollectionViewDropDelegate
                 return UICollectionViewDropProposal(operation: .move, intent: .insertAtDestinationIndexPath)
             }
             
-            let activeAppsCount = (self.activeAppsDataSource.fetchedResultsController.fetchedObjects ?? []).map { $0.requiredActiveSlots }.reduce(0, +)
+            let teamID = installedApp.team?.identifier
+            let activeAppsCount = (self.activeAppsDataSource.fetchedResultsController.fetchedObjects ?? [])
+                .filter { app in
+                    guard let teamID, !teamID.isEmpty else { return true }
+                    return app.team?.identifier == nil || app.team?.identifier == teamID
+                }
+                .map { $0.requiredActiveSlots }
+                .reduce(0, +)
             let availableActiveApps = max(activeAppsLimit - activeAppsCount, 0)
             
             if installedApp.requiredActiveSlots <= availableActiveApps

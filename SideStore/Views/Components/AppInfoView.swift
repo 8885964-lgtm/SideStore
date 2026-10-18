@@ -119,6 +119,9 @@ struct AppInfoView: View {
                         InfoRow(label: "Team Name", value: team.name)
                         InfoRow(label: "Team ID", value: team.identifier)
                     }
+                    if let signingAppleID = installedApp.signingAppleID, !signingAppleID.isEmpty {
+                        InfoRow(label: "Apple ID", value: signingAppleID)
+                    }
                     InfoRow(label: "Expiration Date", value: formatDate(provisioningProfile?.expirationDate ?? installedApp.expirationDate))
                     InfoRow(label: "Refreshed Date", value: formatDate(provisioningProfile?.creationDate ?? installedApp.refreshedDate))
                     InfoRow(label: "Installed Date", value: formatDate(installedApp.installedDate))

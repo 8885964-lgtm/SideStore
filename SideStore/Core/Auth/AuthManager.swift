@@ -62,8 +62,35 @@ public final class AuthManager: @unchecked Sendable {
         keepCertificate: Bool = false,
         keepAnisetteData: Bool = true,
         keepAnisetteHeaders: Bool = true,
-        keepSideSignHeaders: Bool = true
+        keepSideSignHeaders: Bool = true,
+        promoteRemaining: Bool = true
     ) async {
+        let body = {
+            await self.signOutCurrent(
+                keepCertificate: keepCertificate,
+                keepAnisetteData: keepAnisetteData,
+                keepAnisetteHeaders: keepAnisetteHeaders,
+                keepSideSignHeaders: keepSideSignHeaders,
+                promoteRemaining: promoteRemaining
+            )
+        }
+        if AccountSessionGate.depth > 0 {
+            await body()
+        } else {
+            try? await AccountSessionGate.shared.performExclusive(body)
+        }
+    }
+
+    private func signOutCurrent(
+        keepCertificate: Bool,
+        keepAnisetteData: Bool,
+        keepAnisetteHeaders: Bool,
+        keepSideSignHeaders: Bool,
+        promoteRemaining: Bool
+    ) async {
+        if let removedAppleID = self.currentAppleID {
+            AppleAccountStore.shared.remove(appleID: removedAppleID)
+        }
         self.session = nil
         self.team = nil
         if !keepCertificate {
@@ -93,11 +120,16 @@ public final class AuthManager: @unchecked Sendable {
         }
 
         AnisetteDataManager.shared.clearCache()
+
+        if promoteRemaining, let next = AppleAccountStore.shared.accounts().first {
+            try? await AccountSessionGate.shared.activate(next.appleID, notify: true)
+        }
     }
     
     @discardableResult
     public func getAuthenticatedSession() async throws -> ALTAppleAPISession {
-        return try await TaskChainCoalescer.shared.coalesce(key: "apple_auth_session") {
+        let sessionKey = "apple_auth_session_\(self.adsid ?? "")"
+        return try await TaskChainCoalescer.shared.coalesce(key: sessionKey) {
             guard let adsid = self.adsid,                           // directory services id
                   let xcodeToken = self.xcodeToken else             // xcode token
             {
@@ -115,6 +147,24 @@ public final class AuthManager: @unchecked Sendable {
             )
             self.session = session
             return session
+        }
+    }
+
+    func invalidateCachedSession() {
+        self.session = nil
+        self.team = nil
+    }
+
+    /// Matches the free-account slot calculation used when an Apple ID is signed in.
+    public func applyActiveAppsLimit(for teamType: ALTTeamType) {
+        let isSparseRestorePatched = ProcessInfo().sparseRestorePatched
+        let isAppLimitDisabled = UserDefaults.standard.isAppLimitDisabled
+        UserDefaults.standard.activeAppsLimit = nil
+        if teamType == .free {
+            if (!isAppLimitDisabled && isSparseRestorePatched) ||
+                (isAppLimitDisabled && !isSparseRestorePatched) {
+                UserDefaults.standard.activeAppsLimit = InstalledApp.freeAccountActiveAppsLimit
+            }
         }
     }
 
@@ -144,6 +194,34 @@ public final class AuthManager: @unchecked Sendable {
         skipCertificateProvisioning: Bool = false,
         skipResign: Bool = false,
         skipHowTos: Bool = false
+    ) async throws -> SignInResult {
+        try await AccountSessionGate.shared.performExclusive {
+            AppleAccountStore.shared.captureCurrentCredentials()
+            do {
+                let result = try await self.performSignIn(
+                    presentingViewController: presentingViewController,
+                    skipDeviceRegistration: skipDeviceRegistration,
+                    skipCertificateProvisioning: skipCertificateProvisioning,
+                    skipResign: skipResign,
+                    skipHowTos: skipHowTos
+                )
+                AppleAccountStore.shared.captureCurrentCredentials()
+                return result
+            } catch {
+                if self.currentAppleID != nil {
+                    AppleAccountStore.shared.captureCurrentCredentials()
+                }
+                throw error
+            }
+        }
+    }
+
+    private func performSignIn(
+        presentingViewController: UIViewController?,
+        skipDeviceRegistration: Bool,
+        skipCertificateProvisioning: Bool,
+        skipResign: Bool,
+        skipHowTos: Bool
     ) async throws -> SignInResult {
         let dbBackgroundContext = DatabaseManager.shared.persistentContainer.newBackgroundContext()
         let signInFlowHandler = SignInFlowHandler(presentingViewController: presentingViewController)

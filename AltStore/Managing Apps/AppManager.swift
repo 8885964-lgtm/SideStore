@@ -148,9 +148,10 @@ final class AppManager: ObservableObject, @unchecked Sendable
               let activeAppsLimit = UserDefaults.standard.activeAppsLimit
         else { return nil }
 
+        let teamID = installedApp.team?.identifier
         let activeApps = InstalledApp.fetchActiveApps(in: DatabaseManager.shared.viewContext)
             .filter { $0.resignedBundleIdentifier != installedApp.resignedBundleIdentifier }
-            .filter { ($0.team?.type ?? .unknown) == .free }
+            .filter { $0.countsAgainstActiveLimit(ofTeamIdentifier: teamID) }
             .sorted { ($0.name, $0.refreshedDate) < ($1.name, $1.refreshedDate) }
 
         let activeAppsCount = activeApps.map(\.requiredActiveSlots).reduce(0, +)
@@ -448,6 +449,60 @@ final class AppManager: ObservableObject, @unchecked Sendable
                  context: StandaloneOperationContext? = nil,
                  completionHandler: @escaping (Result<InstalledApp, Error>) -> Void) -> RefreshGroup
     {
+        let signedInAccounts = AppleAccountStore.shared.accounts()
+        guard signedInAccounts.count > 1, let presentingViewController else {
+            return self.installWithActiveAccount(
+                target,
+                presentingViewController: presentingViewController,
+                dbBackgroundContext: dbBackgroundContext,
+                context: context,
+                completionHandler: completionHandler
+            )
+        }
+
+        debugLog("[AppManager] install() prompting for Apple ID. \(signedInAccounts.count) accounts are signed in.")
+        let dbContext = self.getValidDbContext(dbBackgroundContext ?? context?.dbBackgroundContext)
+        let group = RefreshGroup(dbContext: dbContext)
+        group.activeTask = Task {
+            let choice = await AppleAccountPicker.choose(from: presentingViewController)
+            guard let choice else {
+                await MainActor.run {
+                    completionHandler(.failure(CancellationError()))
+                }
+                return
+            }
+            do {
+                try await AccountSessionGate.shared.perform(appleID: choice) {
+                    await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                        let inner = self.installWithActiveAccount(
+                            target,
+                            presentingViewController: presentingViewController,
+                            dbBackgroundContext: dbContext,
+                            context: context
+                        ) { result in
+                            completionHandler(result)
+                            continuation.resume()
+                        }
+                        group.linkedGroup = inner
+                        group.progress.addChild(inner.progress, withPendingUnitCount: 100)
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    completionHandler(.failure(error))
+                }
+            }
+        }
+        return group
+    }
+
+    @discardableResult
+    private func installWithActiveAccount(_ target: InstallTarget,
+                                          presentingViewController: UIViewController? = nil,
+                                          dbBackgroundContext: NSManagedObjectContext? = nil,
+                                          context: StandaloneOperationContext? = nil,
+                                          completionHandler: @escaping (Result<InstalledApp, Error>) -> Void) -> RefreshGroup
+    {
         debugLog("[AppManager] install() called for target: \(target)")
         let pipelineHandler = self.makePipelineHandler(presentingViewController: presentingViewController)
         let dbContext = self.getValidDbContext(dbBackgroundContext ?? context?.dbBackgroundContext)
@@ -561,6 +616,53 @@ final class AppManager: ObservableObject, @unchecked Sendable
         } else {
             let context = self.getValidDbContext(dbContext)
             actualGroup = RefreshGroup(dbContext: context)
+        }
+
+        let buckets = SigningAccountResolver.buckets(for: installedApps)
+        if buckets.count > 1 {
+            debugLog("[AppManager] refresh() splitting \(installedApps.count) apps across \(buckets.count) Apple IDs")
+            actualGroup.activeTask = Task.detached {
+                actualGroup.progress.totalUnitCount = Int64(max(installedApps.count, 1) * 100)
+                for bucket in buckets {
+                    if Task.isCancelled {
+                        for app in bucket.apps {
+                            let bundleID = SigningAccountResolver.bundleID(for: app)
+                            if actualGroup.results[bundleID] == nil {
+                                actualGroup.set(.failure(CancellationError()), forAppWithBundleIdentifier: bundleID)
+                            }
+                        }
+                        continue
+                    }
+                    let inner = RefreshGroup(dbContext: actualGroup.dbContext)
+                    inner.beginInstallationHandler = { installedApp in
+                        actualGroup.beginInstallationHandler?(installedApp)
+                    }
+                    actualGroup.progress.addChild(inner.progress, withPendingUnitCount: Int64(max(bucket.apps.count, 1) * 100))
+                    var bucketError: Error?
+                    do {
+                        try await self.pipelineRunner.perform(bucket.apps.map { .refresh($0) }, handler: pipelineHandler, group: inner)
+                    } catch {
+                        bucketError = error
+                        debugLog("[AppManager] refresh() Apple ID \(bucket.appleID) failed: \(error.localizedDescription)")
+                    }
+                    for (bundleID, result) in inner.results {
+                        actualGroup.set(result, forAppWithBundleIdentifier: bundleID)
+                    }
+                    if let bucketError {
+                        for app in bucket.apps {
+                            let bundleID = SigningAccountResolver.bundleID(for: app)
+                            if actualGroup.results[bundleID] == nil {
+                                actualGroup.set(.failure(bucketError), forAppWithBundleIdentifier: bundleID)
+                            }
+                        }
+                    }
+                }
+                let results = actualGroup.results
+                await MainActor.run {
+                    actualGroup.completionHandler?(results)
+                }
+            }
+            return actualGroup
         }
         
         actualGroup.activeTask = Task.detached {

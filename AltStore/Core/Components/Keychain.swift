@@ -174,4 +174,33 @@ public class Keychain
         try? self.keychain.removeAll()
         debugLog("[Keychain] All Keychain items cleared.")
     }
+
+    // MARK: - Named slots
+    //
+    // Additional Apple IDs are stored beside the legacy single-account keys,
+    // using the same keychain service and accessibility.
+
+    public func storedString(for key: String) -> String? {
+        try? self.keychain.getString(key)
+    }
+
+    public func setStoredString(_ value: String?, for key: String) {
+        if let value {
+            try? self.keychain.set(value, key: key)
+        } else {
+            try? self.keychain.remove(key)
+        }
+    }
+
+    public func storedData(for key: String) -> Data? {
+        try? self.keychain.getData(key)
+    }
+
+    public func setStoredData(_ value: Data?, for key: String) {
+        if let value {
+            try? self.keychain.set(value, key: key)
+        } else {
+            try? self.keychain.remove(key)
+        }
+    }
 }

@@ -654,9 +654,19 @@ private extension SettingsViewController
         debugLog("[SettingsVC] signOut() invoked by user action")
         let contentVC = SignOutAlertViewController()
         
+        let signedInAccounts = AppleAccountStore.shared.accounts()
+        let message: String
+        if signedInAccounts.count > 1, let email = AuthManager.shared.currentAppleID {
+            message = String(
+                format: NSLocalizedString("Sign out of %@? Other Apple IDs stay on this device and can still refresh the apps they signed.", comment: ""),
+                email
+            )
+        } else {
+            message = NSLocalizedString("Are you sure you want to sign out? You will no longer be able to install or refresh apps once you sign out.", comment: "")
+        }
         let alertController = UIAlertController(
             title: NSLocalizedString("Sign Out", comment: ""),
-            message: NSLocalizedString("Are you sure you want to sign out? You will no longer be able to install or refresh apps once you sign out.", comment: ""),
+            message: message,
             preferredStyle: .alert
         )
         
@@ -941,6 +951,19 @@ private extension SettingsViewController
 
 extension SettingsViewController
 {
+    private var showsAppleIDsRow: Bool {
+        self.activeTeam != nil
+    }
+
+    private var appleIDsRowIndex: Int {
+        self.accountStatus == .completed ? 3 : 4
+    }
+
+    private func isAppleIDsRow(_ indexPath: IndexPath) -> Bool {
+        guard indexPath.section < Section.allCases.count else { return false }
+        return Section.allCases[indexPath.section] == .account && self.showsAppleIDsRow && indexPath.row == self.appleIDsRowIndex
+    }
+
     override func numberOfSections(in tableView: UITableView) -> Int
     {
         var numberOfSections = super.numberOfSections(in: tableView)
@@ -955,6 +978,9 @@ extension SettingsViewController
     
     override func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat
     {
+        if self.isAppleIDsRow(indexPath) {
+            return 44
+        }
         if Section.allCases[indexPath.section] == .account && indexPath.row == 3 {
             return AccountVerificationRow.preferredHeight
         }
@@ -970,11 +996,12 @@ extension SettingsViewController
 
     override func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath)
     {
+        if self.isAppleIDsRow(indexPath) { return }
         if Section.allCases[indexPath.section] == .account {
             if indexPath.row == 2, let insetCell = cell as? InsetGroupTableViewCell {
-                insetCell.style = (self.accountStatus == .completed) ? .bottom : .middle
+                insetCell.style = self.showsAppleIDsRow ? .middle : ((self.accountStatus == .completed) ? .bottom : .middle)
             } else if indexPath.row == 3, let actionCell = cell as? AccountVerificationRow {
-                actionCell.style = .bottom
+                actionCell.style = self.showsAppleIDsRow ? .middle : .bottom
                 actionCell.backgroundColor = .clear
                 actionCell.contentView.backgroundColor = .clear
                 actionCell.backgroundConfiguration = .clear()
@@ -984,6 +1011,9 @@ extension SettingsViewController
 
     override func tableView(_ tableView: UITableView, indentationLevelForRowAt indexPath: IndexPath) -> Int
     {
+        if self.isAppleIDsRow(indexPath) {
+            return 0
+        }
         if Section.allCases[indexPath.section] == .account && indexPath.row == 3 {
             return 0
         }
@@ -1004,7 +1034,9 @@ extension SettingsViewController
         {
         case _ where isSectionHidden(section): return 0
         case .signIn: return (self.activeTeam == nil) ? 1 : 0
-        case .account: return (self.activeTeam == nil) ? 0 : (self.accountStatus == .completed ? 3 : 4)
+        case .account:
+            guard self.activeTeam != nil else { return 0 }
+            return (self.accountStatus == .completed ? 3 : 4) + 1
         case .appRefresh: return AppRefreshRow.allCases.count
         case .advancedSettings: return AdvancedSettingsRow.allCases.count
         default: return super.tableView(tableView, numberOfRowsInSection: section.rawValue)
@@ -1013,6 +1045,15 @@ extension SettingsViewController
     
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell
     {
+        if self.isAppleIDsRow(indexPath) {
+            let cell = InsetGroupTableViewCell(style: .value1, reuseIdentifier: nil)
+            cell.textLabel?.text = NSLocalizedString("Apple IDs", comment: "")
+            cell.detailTextLabel?.text = String(AppleAccountStore.shared.accounts().count)
+            cell.accessoryType = .disclosureIndicator
+            cell.isSelectable = true
+            cell.style = .bottom
+            return cell
+        }
         if Section.allCases[indexPath.section] == .account && indexPath.row == 3 {
             let cell = tableView.dequeueReusableCell(withIdentifier: AccountVerificationRow.reuseIdentifier) as? AccountVerificationRow
                 ?? AccountVerificationRow()
@@ -1033,7 +1074,7 @@ extension SettingsViewController
         if Section.allCases[indexPath.section] == .account {
             if indexPath.row == 2 {
                 if let insetCell = cell as? InsetGroupTableViewCell {
-                    insetCell.style = (self.accountStatus == .completed) ? .bottom : .middle
+                    insetCell.style = self.showsAppleIDsRow ? .middle : ((self.accountStatus == .completed) ? .bottom : .middle)
                 }
             }
         }
@@ -1138,7 +1179,12 @@ extension SettingsViewController
         {
         case .signIn: self.signIn()
         case .account:
-            if indexPath.row == 3 {
+            if self.isAppleIDsRow(indexPath) {
+                tableView.deselectRow(at: indexPath, animated: true)
+                let hostingController = UIHostingController(rootView: AppleAccountsView())
+                hostingController.title = NSLocalizedString("Apple IDs", comment: "")
+                self.navigationController?.pushViewController(hostingController, animated: true)
+            } else if indexPath.row == 3 {
                 tableView.deselectRow(at: indexPath, animated: true)
                 self.resolvePendingAccountActions()
             }

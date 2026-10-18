@@ -250,6 +250,10 @@ final class InstallAppOperation: BasePipelineOperation<InstallAppOperationContex
             if let team = Team.first(satisfying: teamPredicate, in: backgroundContext) {
                 installedApp.team = team
             }
+            if let signingAppleID = AuthManager.shared.currentAppleID?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !signingAppleID.isEmpty {
+                installedApp.signingAppleID = signingAppleID
+            }
             if let storeApp {
                 let storeAppInContext = backgroundContext.object(with: storeApp.objectID) as? StoreApp
                 installedApp.storeApp = storeAppInContext
@@ -362,9 +366,10 @@ final class InstallAppOperation: BasePipelineOperation<InstallAppOperationContex
             let fetchRequest = InstalledApp.activeAppsFetchRequest()
             fetchRequest.includesPendingChanges = false
             
-            // Only free-cert-signed apps count against the free limit
+            // Only free-cert-signed apps on this team count against the free limit.
+            let teamID = installedApp.team?.identifier
             var activeApps = InstalledApp.fetch(fetchRequest, in: backgroundContext)
-                                         .filter { ($0.team?.type ?? .unknown) == .free }
+                                         .filter { $0.countsAgainstActiveLimit(ofTeamIdentifier: teamID) }
             
             if !activeApps.contains(installedApp) {
                 let activeAppsCount = activeApps.map { $0.requiredActiveSlots }.reduce(0, +)

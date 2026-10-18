@@ -142,6 +142,7 @@ public class InstalledApp: BaseEntity, InstalledAppProtocol
     @NSManaged public var useMainProfile: Bool
     
     @NSManaged public var certificateSerialNumber: String?
+    @NSManaged public var signingAppleID: String?
     @NSManaged public var storeBuildVersion: String?
     @NSManaged public var certificateStatusRaw: String?
     @NSManaged public var appBundleFingerprint: String?
@@ -242,6 +243,13 @@ public class InstalledApp: BaseEntity, InstalledAppProtocol
     
     public var appIDCount: Int {
         return 1 + self.appExtensions.count
+    }
+
+    /// Free-account active slots are per team. Apps with no team stay on the legacy global count.
+    public func countsAgainstActiveLimit(ofTeamIdentifier teamIdentifier: String?) -> Bool {
+        guard (self.team?.type ?? .unknown) == .free else { return false }
+        guard let teamIdentifier, !teamIdentifier.isEmpty else { return true }
+        return self.team?.identifier == teamIdentifier
     }
     
     public var requiredActiveSlots: Int {

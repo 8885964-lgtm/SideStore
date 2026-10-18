@@ -367,13 +367,37 @@ public class DatabaseManager: @unchecked Sendable
                 installedApp.refreshedDate = cachedRefreshedDate
                 installedApp.expirationDate = cachedExpirationDate
             }
+
+            self.backfillSigningAppleIDs(in: context)
             
             try context.save()
         }
+
+        AppleAccountStore.shared.captureCurrentCredentials()
         
         await self.updateFeaturedSortIDs()
     }
     
+    /// Existing installs have no signingAppleID until this model version. Prefer the team account already stored on the app, then the active Apple ID.
+    private func backfillSigningAppleIDs(in context: NSManagedObjectContext) {
+        let predicate = NSPredicate(
+            format: "%K == nil OR %K == ''",
+            #keyPath(InstalledApp.signingAppleID),
+            #keyPath(InstalledApp.signingAppleID)
+        )
+        let missing = InstalledApp.all(satisfying: predicate, in: context)
+        guard !missing.isEmpty else { return }
+        let fallback = Keychain.shared.appleIDEmailAddress?.trimmingCharacters(in: .whitespacesAndNewlines)
+        for app in missing {
+            let recorded = app.team?.account?.appleID.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let recorded, !recorded.isEmpty {
+                app.signingAppleID = recorded
+            } else if let fallback, !fallback.isEmpty {
+                app.signingAppleID = fallback
+            }
+        }
+    }
+
     private func reconcileSelfFromSelfBinary(installedApp: InstalledApp, localAppBundle: ALTApplication, serialNumber: String?) {
         debugLog("[DatabaseManager] reconcileSelfFromSelfBinary: Started for '\(localAppBundle.name)' (\(localAppBundle.bundleIdentifier)).")
         var binaryCertSerial: String? = nil

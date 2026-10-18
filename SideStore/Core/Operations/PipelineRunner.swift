@@ -105,6 +105,14 @@ final class PipelineRunner: Sendable
     {
         let operations = operations.filter { progress.progress(for: $0) == nil || progress.progress(for: $0)?.isCancelled == true }
         guard !operations.isEmpty else { throw OperationError.cancelled }
+
+        if AccountSessionGate.depth == 0,
+           let appleID = SigningAccountResolver.appleID(for: operations),
+           AccountSessionGate.shared.requiresSwitch(to: appleID) {
+            return try await AccountSessionGate.shared.perform(appleID: appleID) {
+                try await self.perform(operations, handler: handler, group: group)
+            }
+        }
         
         let backgroundTaskID = await MainActor.run {
             var taskID = UIBackgroundTaskIdentifier.invalid

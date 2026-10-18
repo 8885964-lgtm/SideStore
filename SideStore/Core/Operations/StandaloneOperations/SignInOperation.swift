@@ -307,17 +307,7 @@ private extension SignInOperation {
                     otherTeam.isActiveTeam = false
                 }
 
-                let isSparseRestorePatched   = ProcessInfo().sparseRestorePatched
-                let isAppLimitDisabled       = UserDefaults.standard.isAppLimitDisabled
-
-                UserDefaults.standard.activeAppsLimit = nil
-                if team.type == .free {
-                    if !isAppLimitDisabled && isSparseRestorePatched ||
-                        isAppLimitDisabled && !isSparseRestorePatched 
-                    {
-                        UserDefaults.standard.activeAppsLimit = InstalledApp.freeAccountActiveAppsLimit
-                    }
-                }
+                AuthManager.shared.applyActiveAppsLimit(for: team.type)
             }
             
             try context.save()

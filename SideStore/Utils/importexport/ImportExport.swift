@@ -118,7 +118,7 @@ class ImportExport {
             let decryptedData = try AES.GCM.open(sealedBox, using: key)
             let account = try Foundation.JSONDecoder().decode(ImportedAccount.self, from: decryptedData)
             
-            await AuthManager.shared.signOut()
+            await AuthManager.shared.signOut(promoteRemaining: false)
             AuthManager.shared.currentAppleID = account.email
             if let pass = account.password, !pass.isEmpty {
                 AuthManager.shared.password = pass
@@ -128,6 +128,7 @@ class ImportExport {
             
             let altCert = try CertificateManager.parse(account.certificateData, password: account.certificatePassword)
             try CertificateManager.shared.setActiveCertificate(altCert)
+            AppleAccountStore.shared.captureCurrentCredentials()
             
             return account
         } catch {
@@ -283,7 +284,7 @@ extension ImportExport {
         let accountData = try Data(contentsOf: file)
         let account = try Foundation.JSONDecoder().decode(ImportedAccount.self, from: accountData)
         
-        await AuthManager.shared.signOut()
+        await AuthManager.shared.signOut(promoteRemaining: false)
         AuthManager.shared.currentAppleID = account.email
         AuthManager.shared.password = account.password
         AnisetteConfigManager.shared.anisetteAdiBlob = account.anisetteAdiBlob
@@ -291,6 +292,7 @@ extension ImportExport {
         
         let altCert = try CertificateManager.parse(account.certificateData, password: account.certificatePassword)
         try CertificateManager.shared.setActiveCertificate(altCert)
+        AppleAccountStore.shared.captureCurrentCredentials()
     }
 }
 #endif
