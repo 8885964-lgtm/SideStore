@@ -15,12 +15,17 @@ struct RefreshAllAppsWidgetIntent: AppIntent, ProgressReportingIntent
     static var isDiscoverable: Bool { false } // Don't show in Shortcuts or Spotlight.
     
     #if !WIDGET_EXTENSION
-    private let intent = RefreshAllAppsIntent(presentsNotifications: true)
+    private let intent = RefreshAllAppsIntent(presentsNotifications: true, appliesAutoRefreshSchedule: true)
     #endif
     
     func perform() async throws -> some IntentResult
     {
     #if !WIDGET_EXTENSION
+        if await self.continuesInAppOffWiFi()
+        {
+            return .result()
+        }
+        
         do
         {
             _ = try await self.intent.perform()
@@ -34,6 +39,44 @@ struct RefreshAllAppsWidgetIntent: AppIntent, ProgressReportingIntent
         return .result()
     }
 }
+
+#if !WIDGET_EXTENSION
+@available(iOS 17, tvOS 17, *)
+private extension RefreshAllAppsWidgetIntent
+{
+    /// With "Open App to Refresh on Cellular" on and the device off Wi-Fi, brings SideStore to the foreground and
+    /// starts Refresh All in My Apps, where switching cellular data through Shortcuts works.
+    /// Returns false (refresh in the background, as before) when the setting is off, on Wi-Fi, or if iOS declines.
+    func continuesInAppOffWiFi() async -> Bool
+    {
+        guard AutoRefreshPreferences.widgetOpensAppOnCellular else { return false }
+        
+        let isOnWiFi = await WiFiReachability.isOnWiFi()
+        guard !isOnWiFi else { return false }
+        
+        debugLog("[RefreshAllAppsWidgetIntent] Not on Wi-Fi, continuing Refresh All in the app.")
+        await MainActor.run {
+            RefreshAllDeepLink.request()
+        }
+        
+        do
+        {
+            try await self.intent.requestToContinueInForeground(nil) {
+                RefreshAllDeepLink.request()
+            }
+            return true
+        }
+        catch
+        {
+            debugLog("[RefreshAllAppsWidgetIntent] Couldn't continue in the app, refreshing in the background. \(error)")
+            await MainActor.run {
+                RefreshAllDeepLink.cancel()
+            }
+            return false
+        }
+    }
+}
+#endif
 
 // To ensure this intent is handled by the app itself (and not widget extension)
 // we need to conform to either `ForegroundContinuableIntent` or `AudioPlaybackIntent`.

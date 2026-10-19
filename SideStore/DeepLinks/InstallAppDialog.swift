@@ -18,12 +18,12 @@ public enum AppImportSourceMode: String, CaseIterable, Identifiable, Sendable {
     public var displayName: String {
         switch self {
         case .prompt:
-            return "Prompt User"
+            return NSLocalizedString("Prompt User", comment: "")
         case .files:
             #if !os(tvOS)
-            return "Files App"
+            return NSLocalizedString("Files App", comment: "")
             #else
-            return "Web Upload"
+            return NSLocalizedString("Web Upload", comment: "")
             #endif
         case .url:
             return "URL"
