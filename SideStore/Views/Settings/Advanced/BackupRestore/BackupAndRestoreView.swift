@@ -239,7 +239,7 @@ struct BackupAndRestoreView: View {
                 self.importedAccount = account
                 
                 if let pass = account.password, !pass.isEmpty {
-                    showAlert(title: "Account Imported", message: "Account \(account.email) imported successfully!")
+                    showAlert(title: "Account Imported", message: String(format: NSLocalizedString("Account %@ imported successfully!", comment: ""), account.email))
                 } else {
                     self.applePasswordInput = ""
                     self.showingApplePasswordAlert = true
@@ -253,12 +253,12 @@ struct BackupAndRestoreView: View {
     private func performAppleSignIn() {
         guard let account = importedAccount, !applePasswordInput.isEmpty else { return }
         AuthManager.shared.password = applePasswordInput
-        showAlert(title: "Account Imported", message: "Account \(account.email) imported successfully!")
+        showAlert(title: "Account Imported", message: String(format: NSLocalizedString("Account %@ imported successfully!", comment: ""), account.email))
     }
 
     private func showAlert(title: String, message: String) {
-        self.alertTitle = title
-        self.alertMessage = message
+        self.alertTitle = localizedInterfaceString(title)
+        self.alertMessage = localizedInterfaceString(message)
         self.showingMessageAlert = true
     }
 }

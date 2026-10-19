@@ -196,7 +196,7 @@ struct AppInfoView: View {
                                     Text(showResignedProfile ? "No Resigned Profile Cached" : "No Bundle Profile Found")
                                         .font(.subheadline)
                                         .foregroundColor(.secondary)
-                                    Text("Tap toggle to view \(showResignedProfile ? "bundle" : "resigned") profile")
+                                    Text(showResignedProfile ? NSLocalizedString("Tap toggle to view bundle profile", comment: "") : NSLocalizedString("Tap toggle to view resigned profile", comment: ""))
                                         .font(.caption2)
                                         .foregroundColor(.secondary)
                                 }
@@ -252,7 +252,7 @@ struct AppInfoView: View {
                                     Text(showResignedInfoPlist ? "No Resigned Info.plist Cached" : "No Bundle Info.plist Found")
                                         .font(.subheadline)
                                         .foregroundColor(.secondary)
-                                    Text("Tap toggle to view \(showResignedInfoPlist ? "bundle" : "resigned") Info.plist")
+                                    Text(showResignedInfoPlist ? NSLocalizedString("Tap toggle to view bundle Info.plist", comment: "") : NSLocalizedString("Tap toggle to view resigned Info.plist", comment: ""))
                                         .font(.caption2)
                                         .foregroundColor(.secondary)
                                 }
@@ -762,7 +762,7 @@ struct ExtensionInfoView: View {
                                 Text(showResignedProfile ? "No Resigned Profile Cached" : "No Bundle Profile Found")
                                     .font(.subheadline)
                                     .foregroundColor(.secondary)
-                                Text("Tap toggle to view \(showResignedProfile ? "bundle" : "resigned") profile")
+                                Text(showResignedProfile ? NSLocalizedString("Tap toggle to view bundle profile", comment: "") : NSLocalizedString("Tap toggle to view resigned profile", comment: ""))
                                     .font(.caption2)
                                     .foregroundColor(.secondary)
                             }
@@ -818,7 +818,7 @@ struct ExtensionInfoView: View {
                                 Text(showResignedInfoPlist ? "No Resigned Info.plist Cached" : "No Bundle Info.plist Found")
                                     .font(.subheadline)
                                     .foregroundColor(.secondary)
-                                Text("Tap toggle to view \(showResignedInfoPlist ? "bundle" : "resigned") Info.plist")
+                                Text(showResignedInfoPlist ? NSLocalizedString("Tap toggle to view bundle Info.plist", comment: "") : NSLocalizedString("Tap toggle to view resigned Info.plist", comment: ""))
                                     .font(.caption2)
                                     .foregroundColor(.secondary)
                             }

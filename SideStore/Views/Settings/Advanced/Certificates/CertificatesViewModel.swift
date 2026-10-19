@@ -21,9 +21,9 @@ enum PrivateKeyImportError: LocalizedError {
     
     var errorDescription: String? {
         switch self {
-        case .isCertificate:    return "The selected file is a certificate, not a private key."
-        case .invalidKey:       return "The input does not contain a valid private key."
-        case .conversionFailed: return "Failed to convert binary private key to PEM format."
+        case .isCertificate:    return NSLocalizedString("The selected file is a certificate, not a private key.", comment: "")
+        case .invalidKey:       return NSLocalizedString("The input does not contain a valid private key.", comment: "")
+        case .conversionFailed: return NSLocalizedString("Failed to convert binary private key to PEM format.", comment: "")
         }
     }
 }

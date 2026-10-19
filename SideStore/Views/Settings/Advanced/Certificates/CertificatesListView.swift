@@ -128,9 +128,9 @@ private struct CertGroupHeaderView: View {
                         else { viewModel.currentSort = option; viewModel.isAscending = (option == .name) }
                     } label: {
                         if viewModel.currentSort == option {
-                            Label("\(option.rawValue) \(viewModel.isAscending ? "↑" : "↓")", systemImage: "checkmark")
+                            Label(localizedInterfaceString(option.rawValue) + (viewModel.isAscending ? " ↑" : " ↓"), systemImage: "checkmark")
                         } else {
-                            Text(option.rawValue)
+                            Text(localizedInterfaceString(option.rawValue))
                         }
                     }
                 }
@@ -140,7 +140,7 @@ private struct CertGroupHeaderView: View {
             Menu {
                 Picker("Group By", selection: $viewModel.currentGroup) {
                     ForEach(GroupOption.allCases) { option in
-                        Text(option.rawValue).tag(option)
+                        Text(localizedInterfaceString(option.rawValue)).tag(option)
                     }
                 }
             } label: {
@@ -154,7 +154,7 @@ private struct CertGroupHeaderView: View {
             }
             .confirmationDialog("Sort Certificates", isPresented: $showSortDialog) {
                 ForEach(SortOption.allCases) { option in
-                    SwiftUI.Button("\(option.rawValue) \(viewModel.currentSort == option && viewModel.isAscending ? "↑" : "↓")") {
+                    SwiftUI.Button(localizedInterfaceString(option.rawValue) + (viewModel.currentSort == option && viewModel.isAscending ? " ↑" : " ↓")) {
                         if viewModel.currentSort == option { viewModel.isAscending.toggle() }
                         else { viewModel.currentSort = option; viewModel.isAscending = (option == .name) }
                     }

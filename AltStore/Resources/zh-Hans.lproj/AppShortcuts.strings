@@ -1,0 +1,8 @@
+/* Simplified Chinese Siri / Shortcuts phrases for App Shortcuts (fix-4). Every phrase must contain ${applicationName}. */
+
+"Refresh ${applicationName}" = "刷新${applicationName}";
+"Refresh ${applicationName} apps" = "刷新${applicationName}的 App";
+"Refresh my ${applicationName} apps" = "刷新我的${applicationName} App";
+"Refresh apps with ${applicationName}" = "用${applicationName}刷新 App";
+"Install IPA with ${applicationName}" = "用${applicationName}安装 IPA";
+"Install an IPA with ${applicationName}" = "用${applicationName}安装一个 IPA";
