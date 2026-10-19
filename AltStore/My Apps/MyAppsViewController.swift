@@ -443,8 +443,8 @@ private extension MyAppsViewController
             cell.layoutIfNeeded()
         }
         dataSource.prefetchHandler = { (installedApp, indexPath) in
-            // Falls back to the installed app's icon, then a placeholder, so the spinner always stops.
-            return await InstalledAppIconLoader.updateIcon(for: installedApp)
+            guard let iconURL = installedApp.storeApp?.iconURL else { return nil }
+            return try await ImagePipeline.shared.image(for: iconURL)
         }
         dataSource.prefetchCompletionHandler = { (cell, image, indexPath, error) in
             let cell = cell as! UpdateCollectionViewCell
@@ -541,8 +541,7 @@ private extension MyAppsViewController
             }
         }
         dataSource.prefetchHandler = { (item, indexPath) in
-            // Tries item.loadIcon() first, then the bundle, the source, and a placeholder, so the spinner always stops.
-            return await InstalledAppIconLoader.icon(for: item)
+            return try await item.loadIcon()
         }
         dataSource.prefetchCompletionHandler = { (cell, image, indexPath, error) in
             let cell = cell as! InstalledAppCollectionViewCell
@@ -622,8 +621,7 @@ private extension MyAppsViewController
             }
         }
         dataSource.prefetchHandler = { (item, indexPath) in
-            // Tries item.loadIcon() first, then the bundle, the source, and a placeholder, so the spinner always stops.
-            return await InstalledAppIconLoader.icon(for: item)
+            return try await item.loadIcon()
         }
         dataSource.prefetchCompletionHandler = { (cell, image, indexPath, error) in
             let cell = cell as! InstalledAppCollectionViewCell
