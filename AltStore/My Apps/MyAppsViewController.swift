@@ -52,9 +52,6 @@ class MyAppsViewController: UICollectionViewController
     private var isUpdateSectionCollapsed = true
     private var expandedAppUpdates = Set<String>()
     private var isRefreshingAllApps = false
-    
-    /// Set while Refresh All was started by the widget, so it follows the user's automatic refresh timing.
-    private var refreshAllAppliesAutoRefreshSchedule = false
     private var refreshGroup: RefreshGroup?
     private var sideloadingProgress: Progress?
     private var dropDestinationIndexPath: IndexPath?
@@ -81,8 +78,6 @@ class MyAppsViewController: UICollectionViewController
         NotificationCenter.default.addObserver(self, selector: #selector(MyAppsViewController.didFetchSource(_:)), name: AppManager.didFetchSourceNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(MyAppsViewController.importApp(_:)), name: AppDelegate.importAppDeepLinkNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(MyAppsViewController.appIDsViewControllerDidDismiss(_:)), name: AppIDsViewController.didDismissNotification, object: nil)
-        NotificationCenter.default.addObserver(self, selector: #selector(MyAppsViewController.didRequestRefreshAllDeepLink(_:)), name: RefreshAllDeepLink.didRequestNotification, object: nil)
-        NotificationCenter.default.addObserver(self, selector: #selector(MyAppsViewController.didRequestRefreshAllDeepLink(_:)), name: UIApplication.didBecomeActiveNotification, object: nil)
     }
     
     deinit {
@@ -203,8 +198,6 @@ class MyAppsViewController: UICollectionViewController
             self.pendingImportURL = nil
             self.presentImportDialog(for: pendingURL)
         }
-        
-        self.startPendingRefreshAllIfNeeded()
     }
     
     override func viewWillDisappear(_ animated: Bool)
@@ -861,21 +854,8 @@ private extension MyAppsViewController
     
     @IBAction func refreshAllApps(_ sender: UIBarButtonItem)
     {
-        let appliesAutoRefreshSchedule = self.refreshAllAppliesAutoRefreshSchedule
-        self.refreshAllAppliesAutoRefreshSchedule = false
-        
         Task { @MainActor in
-            var installedApps = InstalledApp.fetchAppsForRefreshingAll(in: DatabaseManager.shared.viewContext)
-            if appliesAutoRefreshSchedule && !installedApps.isEmpty
-            {
-                installedApps = InstalledApp.filterDueForAutomaticRefresh(installedApps)
-                guard !installedApps.isEmpty else {
-                    let toastView = ToastView(text: NSLocalizedString("No Apps Need Refreshing", comment: ""),
-                                              detailText: NSLocalizedString("None of your apps are due under your automatic refresh settings.", comment: ""))
-                    toastView.show(in: self)
-                    return
-                }
-            }
+            let installedApps = InstalledApp.fetchAppsForRefreshingAll(in: DatabaseManager.shared.viewContext)
             guard !installedApps.isEmpty else {
                 let error: Error
                 
@@ -2942,40 +2922,5 @@ extension MyAppsViewController {
             try? context.save()
         }
         self.resign(installedApp)
-    }
-}
-
-// MARK: - Refresh All from the widget
-
-extension MyAppsViewController
-{
-    @objc func didRequestRefreshAllDeepLink(_ notification: Notification)
-    {
-        // The tab bar switches to My Apps first, so wait for this screen to appear.
-        DispatchQueue.main.async {
-            self.startPendingRefreshAllIfNeeded()
-        }
-    }
-
-    /// Starts Refresh All once, if the widget asked for it and My Apps is on screen.
-    func startPendingRefreshAllIfNeeded()
-    {
-        guard RefreshAllDeepLink.isPending,
-              UIApplication.shared.applicationState == .active,
-              self.isViewLoaded, self.view.window != nil,
-              DatabaseManager.shared.isStarted
-        else { return }
-
-        guard !self.isRefreshingAllApps else {
-            // A Refresh All is already running; it covers this request.
-            RefreshAllDeepLink.cancel()
-            return
-        }
-
-        guard RefreshAllDeepLink.consume() else { return }
-
-        debugLog("[MyAppsViewController] Starting Refresh All requested by the widget.")
-        self.refreshAllAppliesAutoRefreshSchedule = true
-        self.refreshAllApps(UIBarButtonItem())
     }
 }

@@ -91,9 +91,6 @@ class URLHandler {
             }
             return true
             
-        case RefreshAllDeepLink.host:
-            return RefreshAllDeepLink.handle(components)
-            
         default:
             return false
         }

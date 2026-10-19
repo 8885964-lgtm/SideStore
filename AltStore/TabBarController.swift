@@ -35,7 +35,6 @@ final class TabBarController: UITabBarController
         NotificationCenter.default.addObserver(self, selector: #selector(TabBarController.importApp(_:)), name: AppDelegate.importAppDeepLinkNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(TabBarController.presentSources(_:)), name: AppDelegate.addSourceDeepLinkNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(TabBarController.openErrorLog(_:)), name: ToastView.openErrorLogNotification, object: nil)
-        NotificationCenter.default.addObserver(self, selector: #selector(TabBarController.showMyAppsForRefreshAll(_:)), name: RefreshAllDeepLink.didRequestNotification, object: nil)
     }
     
     override func viewDidLoad() 
@@ -67,12 +66,6 @@ final class TabBarController: UITabBarController
         {
             self.initialSegue = nil
             self.performSegue(withIdentifier: identifier, sender: sender)
-        }
-        
-        if RefreshAllDeepLink.isPending
-        {
-            // Requested before the tabs were on screen (for example, the widget launched SideStore).
-            self.selectedIndex = Tab.myApps.rawValue
         }
     }
     
@@ -119,21 +112,5 @@ private extension TabBarController
     @objc func openErrorLog(_ notification: Notification)
     {
         self.selectedIndex = Tab.settings.rawValue
-    }
-
-    @objc func showMyAppsForRefreshAll(_ notification: Notification)
-    {
-        guard self.isViewLoaded else { return }
-        
-        if let presentedViewController = self.presentedViewController, !presentedViewController.isBeingDismissed
-        {
-            presentedViewController.dismiss(animated: true)
-        }
-        
-        if let navigationController = self.viewControllers?[Tab.myApps.rawValue] as? UINavigationController
-        {
-            navigationController.popToRootViewController(animated: false)
-        }
-        self.selectedIndex = Tab.myApps.rawValue
     }
 }

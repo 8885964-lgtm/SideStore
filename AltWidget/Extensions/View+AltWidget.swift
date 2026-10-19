@@ -49,12 +49,6 @@ extension View
             }
             .buttonStyle(.plain)
         }
-        else if AutoRefreshPreferences.widgetOpensAppOnCellular, let refreshURL = URL(string: "sidestore://refresh-all?onlyOffWiFi=1")
-        {
-            // Widgets can't run intents before iOS 17, so a tap opens SideStore. With "Open App to Refresh on Cellular" on,
-            // the app starts Refresh All when the device isn't on Wi-Fi (on Wi-Fi it just opens, as before).
-            self.widgetURL(refreshURL)
-        }
         else
         {
             self
