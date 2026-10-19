@@ -31,6 +31,7 @@ final class RefreshAttemptsViewController: UITableViewController
     override func viewDidLoad()
     {
         super.viewDidLoad()
+        InterfaceLocalizer.localize(self)
         
         self.tableView.dataSource = self.dataSource
         self.dataSource.contentView = self.tableView

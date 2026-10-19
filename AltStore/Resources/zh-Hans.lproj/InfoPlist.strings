@@ -1,0 +1,5 @@
+/* Simplified Chinese strings for Info.plist usage descriptions. */
+
+"NSLocalNetworkUsageDescription" = "SideStore 可以使用本地网络权限来发现你网络中的 Bonjour (mDNS) 服务。这并非核心功能所必需。";
+"NSLocationAlwaysAndWhenInUseUsageDescription" = "SideStore 使用位置更新来保持后台操作处于活跃状态。";
+"NSLocationWhenInUseUsageDescription" = "SideStore 使用位置更新来保持后台操作处于活跃状态。";

@@ -26,6 +26,7 @@ final class InstructionsViewController: UIViewController
     override func viewDidLoad()
     {
         super.viewDidLoad()
+        InterfaceLocalizer.localize(self)
         
         if UIScreen.main.isExtraCompactHeight
         {

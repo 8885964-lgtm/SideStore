@@ -212,7 +212,7 @@ extension AccountVerificationRow {
             : String(format: NSLocalizedString("%d Pending Actions", comment: ""), count)
         
         let bulletList = pendingItems.map { "• \($0)" }.joined(separator: "\n")
-        let message = NSLocalizedString("The following action(s) from sign-in are required to complete account setup:\n\n\(bulletList)", comment: "")
+        let message = NSLocalizedString("The following action(s) from sign-in are required to complete account setup:", comment: "") + "\n\n" + bulletList
         
         let confirmed = await withCheckedContinuation { continuation in
             let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)

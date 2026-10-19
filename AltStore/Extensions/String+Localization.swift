@@ -22,3 +22,10 @@ public func systemLocalizedString(_ string: String) -> String {
     }
     return localizedString
 }
+
+/// Translates text that reaches the UI as a runtime `String`, such as a title handed to a reusable row.
+/// Returns `string` unchanged when Localizable.strings has no translation for it.
+public func localizedInterfaceString(_ string: String) -> String {
+    guard !string.isEmpty else { return string }
+    return Bundle.main.localizedString(forKey: string, value: string, table: nil)
+}

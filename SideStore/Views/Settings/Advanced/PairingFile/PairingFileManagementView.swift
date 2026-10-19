@@ -391,7 +391,7 @@ struct PairingFileManagementView: View {
             viewModel.toggleReveal(for: fieldKey)
         } label: {
             HStack {
-                Text(label)
+                Text(localizedInterfaceString(label))
                     .font(.system(size: 14))
                     .foregroundColor(Color.white.opacity(0.6))
                 Spacer()
@@ -407,7 +407,7 @@ struct PairingFileManagementView: View {
 
     private func infoRow(label: String, value: String, isMonospaced: Bool = false) -> some View {
         HStack {
-            Text(label)
+            Text(localizedInterfaceString(label))
                 .font(.system(size: 14))
                 .foregroundColor(Color.white.opacity(0.6))
             Spacer()

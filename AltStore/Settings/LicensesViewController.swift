@@ -20,6 +20,12 @@ final class LicensesViewController: UIViewController
     }
     #endif
     
+    override func viewDidLoad()
+    {
+        super.viewDidLoad()
+        InterfaceLocalizer.localize(self)
+    }
+    
     override func viewWillAppear(_ animated: Bool)
     {
         super.viewWillAppear(animated)

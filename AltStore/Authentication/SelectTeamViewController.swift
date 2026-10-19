@@ -22,6 +22,11 @@ final class SelectTeamViewController: UITableViewController
     }
     #endif
     
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        InterfaceLocalizer.localize(self)
+    }
+    
     override func numberOfSections(in tableView: UITableView) -> Int {
         return 1
     }
@@ -52,7 +57,7 @@ final class SelectTeamViewController: UITableViewController
     }
     
     override func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
-        "Teams"
+        NSLocalizedString("Teams", comment: "")
     }
     
 }

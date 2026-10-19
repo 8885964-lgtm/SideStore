@@ -76,6 +76,7 @@ class AddSourceViewController: UICollectionViewController
     override func viewDidLoad()
     {
         super.viewDidLoad()
+        InterfaceLocalizer.localize(self)
                 
         self.navigationController?.isModalInPresentation = true
         self.navigationController?.view.tintColor = .altPrimary

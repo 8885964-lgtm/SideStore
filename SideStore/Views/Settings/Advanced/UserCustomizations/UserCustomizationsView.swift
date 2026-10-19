@@ -534,12 +534,12 @@ struct UserCustomizationsView: View {
     private func toggleRow(title: String, subtitle: String? = nil, isOn: Binding<Bool>) -> some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text(title)
+                Text(localizedInterfaceString(title))
                     .font(.system(size: 17, weight: .bold))
                     .foregroundColor(.white)
                     .fixedSize(horizontal: false, vertical: true)
                 if let subtitle = subtitle {
-                    Text(subtitle)
+                    Text(localizedInterfaceString(subtitle))
                         .font(.system(size: 12, weight: .regular))
                         .foregroundColor(Color.white.opacity(0.6))
                         .fixedSize(horizontal: false, vertical: true)
@@ -566,12 +566,12 @@ struct UserCustomizationsView: View {
         SwiftUI.Button(action: onTap) {
             VStack(alignment: .leading, spacing: 6) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
+                    Text(localizedInterfaceString(title))
                         .font(.system(size: 17, weight: .bold))
                         .foregroundColor(.white)
                         .fixedSize(horizontal: false, vertical: true)
                     if let subtitle = subtitle {
-                        Text(subtitle)
+                        Text(localizedInterfaceString(subtitle))
                             .font(.system(size: 12, weight: .regular))
                             .foregroundColor(Color.white.opacity(0.6))
                             .fixedSize(horizontal: false, vertical: true)
@@ -1023,7 +1023,7 @@ struct UserCustomizationsView: View {
     private func exportWireGuardConfig() {
         guard let url = Bundle.main.url(forResource: "SideStore", withExtension: "conf") else {
             if let top = UIApplication.shared.topViewController() {
-                let toastView = ToastView(text: NSLocalizedString("SideStore.conf missing!", comment: ""), detailText: "Unable to locate SideStore.conf in bundle resources.")
+                let toastView = ToastView(text: NSLocalizedString("SideStore.conf missing!", comment: ""), detailText: NSLocalizedString("Unable to locate SideStore.conf in bundle resources.", comment: ""))
                 toastView.show(in: top)
             }
             return

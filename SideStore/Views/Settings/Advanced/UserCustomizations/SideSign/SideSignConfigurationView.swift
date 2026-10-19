@@ -160,7 +160,7 @@ class SideSignConfigurationViewModel: ObservableObject {
         if let error = error {
             toast = ToastView(error: error, opensLog: true)
         } else {
-            toast = ToastView(text: text, detailText: detailText)
+            toast = ToastView(text: localizedInterfaceString(text), detailText: detailText.map(localizedInterfaceString))
         }
 
         let keyWindow = UIApplication.shared.alt_keyWindow
@@ -493,7 +493,7 @@ struct SideSignConfigurationView: View {
     }
 
     private func sectionHeader(_ title: String) -> some View {
-        Text(title)
+        Text(localizedInterfaceString(title))
             .font(.system(size: 13, weight: .semibold))
             .foregroundColor(Color.white.opacity(0.6))
             .padding(.horizontal, 16)
@@ -508,7 +508,7 @@ struct SideSignConfigurationView: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text(title)
+                Text(localizedInterfaceString(title))
                     .font(.system(size: 15, weight: .bold))
                     .foregroundColor(.white)
                 Spacer()
@@ -527,7 +527,7 @@ struct SideSignConfigurationView: View {
                     .background(Color.white.opacity(0.06))
                     .cornerRadius(8)
                 #else
-                TextField(placeholder, text: text)
+                TextField(localizedInterfaceString(placeholder), text: text)
                     .font(.system(size: 13, design: .monospaced))
                     .foregroundColor(.white)
                     .padding(8)
@@ -535,7 +535,7 @@ struct SideSignConfigurationView: View {
                     .cornerRadius(8)
                 #endif
             } else {
-                TextField(placeholder, text: text)
+                TextField(localizedInterfaceString(placeholder), text: text)
                     .font(.system(size: 13, design: .monospaced))
                     .foregroundColor(.white)
                     .autocapitalization(.none)

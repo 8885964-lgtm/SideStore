@@ -241,6 +241,10 @@ final class SettingsViewController: UITableViewController
         
         self.tableView.register(nib, forHeaderFooterViewReuseIdentifier: "HeaderFooterView")
         
+        // The storyboard isn't localized; translate its rows before any account details are filled in.
+        InterfaceLocalizer.localize(self)
+        self.localizeStaticCells()
+        
         let debugModeGestureRecognizer = UISwipeGestureRecognizer(target: self, action: #selector(SettingsViewController.handleDebugModeGesture(_:)))
         debugModeGestureRecognizer.delegate = self
         debugModeGestureRecognizer.direction = .up
@@ -471,12 +475,28 @@ private extension SettingsViewController
         }
     }
     
+    /// Static cells aren't in the view hierarchy until they're displayed, so they're translated one by one.
+    private func localizeStaticCells()
+    {
+        let numberOfSections = super.numberOfSections(in: self.tableView)
+        for section in 0 ..< numberOfSections
+        {
+            let numberOfRows = super.tableView(self.tableView, numberOfRowsInSection: section)
+            for row in 0 ..< numberOfRows
+            {
+                let cell = super.tableView(self.tableView, cellForRowAt: IndexPath(row: row, section: section))
+                InterfaceLocalizer.localize(cell.contentView)
+            }
+        }
+    }
+    
     private func updateAccountCardRowStyles()
     {
         guard self.isViewLoaded else { return }
         let typeIndexPath = IndexPath(row: 2, section: Section.account.rawValue)
         if let typeCell = self.tableView.cellForRow(at: typeIndexPath) as? InsetGroupTableViewCell {
-            typeCell.style = (self.accountStatus == .completed) ? .bottom : .middle
+            // The Apple IDs row always closes the card while signed in.
+            typeCell.style = (self.showsAppleIDsRow || self.accountStatus != .completed) ? .middle : .bottom
         }
     }
     
@@ -654,9 +674,19 @@ private extension SettingsViewController
         debugLog("[SettingsVC] signOut() invoked by user action")
         let contentVC = SignOutAlertViewController()
         
+        let signedInAccounts = AppleAccountStore.shared.accounts()
+        let message: String
+        if signedInAccounts.count > 1, let email = AuthManager.shared.currentAppleID {
+            message = String(
+                format: NSLocalizedString("Sign out of %@? Other Apple IDs stay on this device and can still refresh the apps they signed.", comment: ""),
+                email
+            )
+        } else {
+            message = NSLocalizedString("Are you sure you want to sign out? You will no longer be able to install or refresh apps once you sign out.", comment: "")
+        }
         let alertController = UIAlertController(
             title: NSLocalizedString("Sign Out", comment: ""),
-            message: NSLocalizedString("Are you sure you want to sign out? You will no longer be able to install or refresh apps once you sign out.", comment: ""),
+            message: message,
             preferredStyle: .alert
         )
         
@@ -738,7 +768,7 @@ private extension SettingsViewController
                     guard UserDefaults.standard.recreateDatabaseOnNextStart else {
                         return
                     }
-                    let toast = ToastView(text: "Database Delete Scheduled on Next Launch", detailText: "App is closing in \(time) seconds...")
+                    let toast = ToastView(text: NSLocalizedString("Database Delete Scheduled on Next Launch", comment: ""), detailText: String(format: NSLocalizedString("App is closing in %@ seconds...", comment: ""), NSNumber(value: time)))
                     toast.tintColor = .altPrimary
                     toast.preferredDuration = 1
                     toast.show(in: self)
@@ -941,6 +971,19 @@ private extension SettingsViewController
 
 extension SettingsViewController
 {
+    private var showsAppleIDsRow: Bool {
+        self.activeTeam != nil
+    }
+
+    private var appleIDsRowIndex: Int {
+        self.accountStatus == .completed ? 3 : 4
+    }
+
+    private func isAppleIDsRow(_ indexPath: IndexPath) -> Bool {
+        guard indexPath.section < Section.allCases.count else { return false }
+        return Section.allCases[indexPath.section] == .account && self.showsAppleIDsRow && indexPath.row == self.appleIDsRowIndex
+    }
+
     override func numberOfSections(in tableView: UITableView) -> Int
     {
         var numberOfSections = super.numberOfSections(in: tableView)
@@ -955,6 +998,9 @@ extension SettingsViewController
     
     override func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat
     {
+        if self.isAppleIDsRow(indexPath) {
+            return AppleAccountsSettingsCell.preferredHeight
+        }
         if Section.allCases[indexPath.section] == .account && indexPath.row == 3 {
             return AccountVerificationRow.preferredHeight
         }
@@ -970,11 +1016,12 @@ extension SettingsViewController
 
     override func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath)
     {
+        if self.isAppleIDsRow(indexPath) { return }
         if Section.allCases[indexPath.section] == .account {
             if indexPath.row == 2, let insetCell = cell as? InsetGroupTableViewCell {
-                insetCell.style = (self.accountStatus == .completed) ? .bottom : .middle
+                insetCell.style = self.showsAppleIDsRow ? .middle : ((self.accountStatus == .completed) ? .bottom : .middle)
             } else if indexPath.row == 3, let actionCell = cell as? AccountVerificationRow {
-                actionCell.style = .bottom
+                actionCell.style = self.showsAppleIDsRow ? .middle : .bottom
                 actionCell.backgroundColor = .clear
                 actionCell.contentView.backgroundColor = .clear
                 actionCell.backgroundConfiguration = .clear()
@@ -984,6 +1031,9 @@ extension SettingsViewController
 
     override func tableView(_ tableView: UITableView, indentationLevelForRowAt indexPath: IndexPath) -> Int
     {
+        if self.isAppleIDsRow(indexPath) {
+            return 0
+        }
         if Section.allCases[indexPath.section] == .account && indexPath.row == 3 {
             return 0
         }
@@ -1004,7 +1054,9 @@ extension SettingsViewController
         {
         case _ where isSectionHidden(section): return 0
         case .signIn: return (self.activeTeam == nil) ? 1 : 0
-        case .account: return (self.activeTeam == nil) ? 0 : (self.accountStatus == .completed ? 3 : 4)
+        case .account:
+            guard self.activeTeam != nil else { return 0 }
+            return (self.accountStatus == .completed ? 3 : 4) + 1
         case .appRefresh: return AppRefreshRow.allCases.count
         case .advancedSettings: return AdvancedSettingsRow.allCases.count
         default: return super.tableView(tableView, numberOfRowsInSection: section.rawValue)
@@ -1013,6 +1065,12 @@ extension SettingsViewController
     
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell
     {
+        if self.isAppleIDsRow(indexPath) {
+            let cell = tableView.dequeueReusableCell(withIdentifier: AppleAccountsSettingsCell.reuseIdentifier) as? AppleAccountsSettingsCell
+                ?? AppleAccountsSettingsCell()
+            cell.configure(numberOfAppleIDs: AppleAccountStore.shared.storedAppleIDs().count)
+            return cell
+        }
         if Section.allCases[indexPath.section] == .account && indexPath.row == 3 {
             let cell = tableView.dequeueReusableCell(withIdentifier: AccountVerificationRow.reuseIdentifier) as? AccountVerificationRow
                 ?? AccountVerificationRow()
@@ -1033,7 +1091,7 @@ extension SettingsViewController
         if Section.allCases[indexPath.section] == .account {
             if indexPath.row == 2 {
                 if let insetCell = cell as? InsetGroupTableViewCell {
-                    insetCell.style = (self.accountStatus == .completed) ? .bottom : .middle
+                    insetCell.style = self.showsAppleIDsRow ? .middle : ((self.accountStatus == .completed) ? .bottom : .middle)
                 }
             }
         }
@@ -1138,7 +1196,13 @@ extension SettingsViewController
         {
         case .signIn: self.signIn()
         case .account:
-            if indexPath.row == 3 {
+            if self.isAppleIDsRow(indexPath) {
+                tableView.deselectRow(at: indexPath, animated: true)
+                let hostingController = UIHostingController(rootView: AppleAccountsView())
+                hostingController.view.backgroundColor = .settingsBackground
+                hostingController.title = NSLocalizedString("Apple IDs", comment: "")
+                self.prepare(for: UIStoryboardSegue(identifier: "diagnostics", source: self, destination: hostingController), sender: nil)
+            } else if indexPath.row == 3 {
                 tableView.deselectRow(at: indexPath, animated: true)
                 self.resolvePendingAccountActions()
             }
@@ -1221,7 +1285,7 @@ extension SettingsViewController
             switch row
             {
             case .sendFeedback:
-                let alertController = UIAlertController(title: "Send Feedback", message: "Choose a method to send feedback:", preferredStyle: .actionSheet)
+                let alertController = UIAlertController(title: NSLocalizedString("Send Feedback", comment: ""), message: NSLocalizedString("Choose a method to send feedback:", comment: ""), preferredStyle: .actionSheet)
                 
                 // Option 1: GitHub
                 alertController.addAction(UIAlertAction(title: "GitHub", style: .default) { _ in
@@ -1235,7 +1299,7 @@ extension SettingsViewController
                 
                 #if !os(tvOS)
                 // Option 3: Mail
-                alertController.addAction(UIAlertAction(title: "Send Email", style: .default) { _ in
+                alertController.addAction(UIAlertAction(title: NSLocalizedString("Send Email", comment: ""), style: .default) { _ in
                     if MFMailComposeViewController.canSendMail() {
                         let mailViewController = MFMailComposeViewController()
                         mailViewController.mailComposeDelegate = self
@@ -1297,7 +1361,7 @@ extension SettingsViewController
                     selected: UserDefaults.standard.menuAnisetteURL,
                     onResetAdiPb: { [weak self] in
                         guard let self = self else { return }
-                        ToastView(text: "Cleared adi.pb!", detailText: "You will need to log back into Apple ID in SideStore.")
+                        ToastView(text: NSLocalizedString("Cleared adi.pb!", comment: ""), detailText: NSLocalizedString("You will need to log back into Apple ID in SideStore.", comment: ""))
                             .show(in: self)
                     }
                 )

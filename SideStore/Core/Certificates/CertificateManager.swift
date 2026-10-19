@@ -97,6 +97,7 @@ public final class CertificateManager: @unchecked Sendable {
                 saveCertificate(cert)
                 let active = ActiveSigningCertificate(certificate: cert, p12Data: p12Data, password: password)
                 self.activeCertificate = active
+                AppleAccountStore.shared.captureActiveCertificate()
                 debugLog("[CertificateManager] setActiveCertificate: Successfully stored certificate (serial: \(cert.serialNumber)).")
             } catch {
                 debugLog("[CertificateManager] setActiveCertificate failed to export/encrypt certificate: \(error)")

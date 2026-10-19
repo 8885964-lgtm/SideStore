@@ -96,7 +96,7 @@ struct ExperimentalFeaturesView: View {
 
     private func toggleRow(title: String, isOn: Binding<Bool>) -> some View {
         HStack {
-            Text(title)
+            Text(localizedInterfaceString(title))
                 .font(.system(size: 17, weight: .bold))
                 .foregroundColor(.white)
                 .fixedSize(horizontal: false, vertical: true)

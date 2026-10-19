@@ -56,6 +56,7 @@ final class AppContentViewController: UITableViewController
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        self.localizeStaticCells()
         
         self.tableView.contentInset.bottom = 20
         
@@ -176,6 +177,21 @@ private extension AppContentViewController
 
 extension AppContentViewController
 {
+    private func localizeStaticCells()
+    {
+        // Static cells come from a non-localized storyboard; translate their fixed captions ("What's New", "Permissions") before content is filled in.
+        let numberOfSections = super.numberOfSections(in: self.tableView)
+        for section in 0 ..< numberOfSections
+        {
+            let numberOfRows = super.tableView(self.tableView, numberOfRowsInSection: section)
+            for row in 0 ..< numberOfRows
+            {
+                let cell = super.tableView(self.tableView, cellForRowAt: IndexPath(row: row, section: section))
+                InterfaceLocalizer.localize(cell.contentView)
+            }
+        }
+    }
+    
     override func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath)
     {
         cell.tintColor = self.app.tintColor

@@ -47,7 +47,7 @@ struct MultipleSelectionRow: View {
     var body: some View {
         SwiftUI.Button(action: self.action) {
             HStack {
-                Text(self.title)
+                Text(localizedInterfaceString(self.title))
                 if self.isSelected {
                     Spacer()
                     Image(systemName: "checkmark")

@@ -42,6 +42,7 @@ final class AppIDsViewController: UICollectionViewController
     override func viewDidLoad()
     {
         super.viewDidLoad()
+        InterfaceLocalizer.localize(self)
         
         self.navigationController?.additionalSafeAreaInsets.top = 20
         self.doneBarButtonItem = self.navigationItem.rightBarButtonItem

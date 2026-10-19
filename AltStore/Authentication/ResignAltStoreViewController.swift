@@ -23,6 +23,7 @@ final class ResignAltStoreViewController: UIViewController
     override func viewDidLoad()
     {
         super.viewDidLoad()
+        InterfaceLocalizer.localize(self)
         
         self.placeholderView.textLabel.isHidden = true
         

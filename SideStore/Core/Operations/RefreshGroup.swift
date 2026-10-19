@@ -29,6 +29,15 @@ final class RefreshGroup: NSObject
     private(set) var retainedContexts = Set<NSManagedObjectContext>()
     
     var activeTask: Task<Void, Never>?
+    /// Cancelled together with this group. Used when install waits on an inner refresh group.
+    private var linkedGroupStorage: RefreshGroup?
+    var linkedGroup: RefreshGroup? {
+        get { self.lock.withLock { self.linkedGroupStorage } }
+        set { self.lock.withLock { self.linkedGroupStorage = newValue } }
+    }
+    /// Signs with this Apple ID instead of the ones recorded on the apps, e.g. the one picked for an install.
+    /// Set before the group's work starts.
+    var signingAppleID: String?
     private let lock = NSLock()
     
     init(dbContext: NSManagedObjectContext, sharedContext: SharedPipelineContext = SharedPipelineContext())
@@ -56,5 +65,6 @@ final class RefreshGroup: NSObject
     func cancel()
     {
         self.activeTask?.cancel()
+        self.linkedGroup?.cancel()
     }
 }

@@ -15,6 +15,7 @@ final class PatreonViewController: UICollectionViewController, UICollectionViewD
     override func viewDidLoad()
     {
         super.viewDidLoad()
+        InterfaceLocalizer.localize(self)
         
         let aboutHeaderNib = UINib(nibName: "AboutPatreonHeaderView", bundle: nil)
         self.prototypeAboutHeader = aboutHeaderNib.instantiate(withOwner: nil, options: nil)[0] as? AboutPatreonHeaderView
@@ -45,6 +46,7 @@ final class PatreonViewController: UICollectionViewController, UICollectionViewD
     func prepare(_ headerView: AboutPatreonHeaderView)
     {
         headerView.layoutMargins = self.view.layoutMargins
+        InterfaceLocalizer.localize(headerView as UIView)
         headerView.supportButton.addTarget(self, action: #selector(PatreonViewController.openPatreonURL(_:)), for: .primaryActionTriggered)
         headerView.twitterButton.addTarget(self, action: #selector(PatreonViewController.openTwitterURL(_:)), for: .primaryActionTriggered)
         headerView.instagramButton.addTarget(self, action: #selector(PatreonViewController.openInstagramURL(_:)), for: .primaryActionTriggered)

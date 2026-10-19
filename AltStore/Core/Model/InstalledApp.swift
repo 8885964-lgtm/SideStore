@@ -142,6 +142,7 @@ public class InstalledApp: BaseEntity, InstalledAppProtocol
     @NSManaged public var useMainProfile: Bool
     
     @NSManaged public var certificateSerialNumber: String?
+    @NSManaged public var signingAppleID: String?
     @NSManaged public var storeBuildVersion: String?
     @NSManaged public var certificateStatusRaw: String?
     @NSManaged public var appBundleFingerprint: String?

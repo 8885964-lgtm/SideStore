@@ -89,6 +89,7 @@ class MyAppsViewController: UICollectionViewController
     override func viewDidLoad()
     {
         super.viewDidLoad()
+        InterfaceLocalizer.localize(self)
         
         // Allows us to intercept delegate callbacks.
         self.updatesDataSource.fetchedResultsController.delegate = self
@@ -140,6 +141,7 @@ class MyAppsViewController: UICollectionViewController
         #endif
         
         NotificationCenter.default.addObserver(self, selector: #selector(MyAppsViewController.didChangeAppIcon(_:)), name: UIApplication.didChangeAppIconNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(MyAppsViewController.appleAccountsDidChange(_:)), name: AppleAccountStore.didChangeNotification, object: nil)
         
         if minimuxerStatusCheckTask == nil {
             minimuxerStatusCheckTask = Task {
@@ -497,6 +499,7 @@ private extension MyAppsViewController
             cell.bannerView.button.configure(for: installedApp)
             cell.bannerView.button.isIndicatingActivity = false
             cell.bannerView.configure(for: installedApp, action: .custom(cell.bannerView.button.title(for: .normal) ?? ""))
+            cell.bannerView.showSigningAppleID(for: installedApp)
             
             if cell.bundleIdentifier != installedApp.bundleIdentifier
             {
@@ -584,6 +587,7 @@ private extension MyAppsViewController
             
             cell.bannerView.button.isIndicatingActivity = false
             cell.bannerView.configure(for: installedApp, action: .custom(NSLocalizedString("ACTIVATE", comment: "")))
+            cell.bannerView.showSigningAppleID(for: installedApp)
             
             cell.bannerView.button.tintColor = tintColor
             cell.bannerView.button.removeTarget(self, action: nil, for: .primaryActionTriggered)
@@ -1559,8 +1563,8 @@ private extension MyAppsViewController
                 toast = ToastView(error: error, opensLog: false)
                 break
             case .success:
-                toast = ToastView(text: "Import Backup successful for \(installedApp.name)",
-                                  detailText: "Use 'Restore Backup' option to restore data from this imported backup")
+                toast = ToastView(text: String(format: NSLocalizedString("Import Backup successful for %@", comment: ""), installedApp.name),
+                                  detailText: NSLocalizedString("Use 'Restore Backup' option to restore data from this imported backup", comment: ""))
             }
             DispatchQueue.main.async {
                 toast.show(in: self)
@@ -1900,6 +1904,14 @@ private extension MyAppsViewController
         }
     }
     
+    @objc func appleAccountsDidChange(_ notification: Notification)
+    {
+        DispatchQueue.main.async {
+            guard self.isViewLoaded else { return }
+            self.reconfigureVisibleCells()
+        }
+    }
+    
     @objc func didChangeAppIcon(_ notification: Notification)
     {
         guard let altStoreApp = InstalledApp.fetchAltStore(in: DatabaseManager.shared.viewContext) else { return }
@@ -2016,6 +2028,7 @@ extension MyAppsViewController
             
         case .activeApps, .inactiveApps:
             let footerView = collectionView.dequeueReusableSupplementaryView(ofKind: UICollectionView.elementKindSectionFooter, withReuseIdentifier: "InstalledAppsFooter", for: indexPath) as! InstalledAppsCollectionFooterView
+            InterfaceLocalizer.localize(footerView as UIView)
             
             guard let team = self.activeTeam else { return footerView }
             switch team.type

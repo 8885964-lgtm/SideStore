@@ -250,6 +250,10 @@ final class InstallAppOperation: BasePipelineOperation<InstallAppOperationContex
             if let team = Team.first(satisfying: teamPredicate, in: backgroundContext) {
                 installedApp.team = team
             }
+            if let signingAppleID = AuthManager.shared.currentAppleID?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !signingAppleID.isEmpty {
+                installedApp.signingAppleID = signingAppleID
+            }
             if let storeApp {
                 let storeAppInContext = backgroundContext.object(with: storeApp.objectID) as? StoreApp
                 installedApp.storeApp = storeAppInContext
