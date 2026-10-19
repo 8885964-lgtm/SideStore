@@ -20,15 +20,15 @@ public enum OCSPValidationError: Error, LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .expired:
-            return NSLocalizedString("The certificate has expired.", comment: "")
+            return "The certificate has expired."
         case .revoked:
-            return NSLocalizedString("The certificate was revoked by Apple.", comment: "")
+            return "The certificate was revoked by Apple."
         case .invalidCertificate:
-            return NSLocalizedString("Failed to parse the certificate data.", comment: "")
+            return "Failed to parse the certificate data."
         case .missingIntermediateCertificate:
-            return NSLocalizedString("Failed to fetch Apple WWDR intermediate certificate.", comment: "")
+            return "Failed to fetch Apple WWDR intermediate certificate."
         case .ocspServerError(let message):
-            return String(format: NSLocalizedString("OCSP server error: %@", comment: ""), "\(message)")
+            return "OCSP server error: \(message)"
         }
     }
 }

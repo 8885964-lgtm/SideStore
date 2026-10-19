@@ -656,7 +656,7 @@ struct ResourceTextViewer: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding()
         }
-        .navigationTitle(title.map { localizedInterfaceString($0) } ?? url?.lastPathComponent ?? NSLocalizedString("Text", comment: ""))
+        .navigationTitle(title ?? url?.lastPathComponent ?? "Text")
         #if !os(tvOS)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -679,7 +679,7 @@ struct ResourceTextViewer: View {
             } else if let url = url {
                 content = (try? String(contentsOf: url, encoding: .utf8))
                     ?? (try? String(contentsOf: url, encoding: .isoLatin1))
-                    ?? NSLocalizedString("(Cannot decode file as text)", comment: "")
+                    ?? "(Cannot decode file as text)"
             }
         }
     }

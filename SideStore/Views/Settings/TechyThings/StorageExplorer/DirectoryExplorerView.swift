@@ -505,9 +505,9 @@ private struct TrailingToolbarMenuView: View {
                         }
                     } label: {
                         if sortOption == option {
-                            Label(String(format: NSLocalizedString("%@ (%@)", comment: ""), localizedInterfaceString(option.rawValue), sortAscending ? NSLocalizedString("Ascending", comment: "") : NSLocalizedString("Descending", comment: "")), systemImage: sortAscending ? "arrow.up" : "arrow.down")
+                            Label("\(option.rawValue) (\(sortAscending ? "Ascending" : "Descending"))", systemImage: sortAscending ? "arrow.up" : "arrow.down")
                         } else {
-                            Text(localizedInterfaceString(option.rawValue))
+                            Text(option.rawValue)
                         }
                     }
                 }
@@ -541,7 +541,7 @@ private struct TrailingToolbarMenuView: View {
                 if !viewModel.isSelectionMode { viewModel.selectedURLs.removeAll() }
             }
             ForEach(StorageSortOption.allCases) { option in
-                SwiftUI.Button(String(format: NSLocalizedString("Sort: %@", comment: ""), localizedInterfaceString(option.rawValue))) {
+                SwiftUI.Button("Sort: \(option.rawValue)") {
                     if viewModel.sortOption == option {
                         viewModel.sortAscending.toggle()
                     } else {

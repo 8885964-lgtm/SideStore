@@ -185,7 +185,7 @@ private struct AdaptiveMenu<Content: View>: View {
         Menu {
             content()
         } label: {
-            Label(localizedInterfaceString(title), systemImage: systemImage)
+            Label(title, systemImage: systemImage)
         }
         #else
         content()

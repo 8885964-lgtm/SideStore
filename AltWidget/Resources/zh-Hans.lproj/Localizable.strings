@@ -46,10 +46,3 @@
 "Expires in %lld " = "剩余 %lld ";
 "%lld days" = "%lld 天";
 "DAY" = "天";
-
-/* fix-4: widget intents */
-"Direction" = "方向";
-"Installed App" = "已安装的 App";
-"App" = "App";
-"ID" = "ID";
-"Provide a numeric ID to identify the widget" = "提供一个数字 ID 来标识小组件";

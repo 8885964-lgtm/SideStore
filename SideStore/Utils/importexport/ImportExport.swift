@@ -22,13 +22,13 @@ enum BackupEncryptionError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .invalidPassword:
-            return NSLocalizedString("Invalid password.", comment: "")
+            return "Invalid password."
         case .decryptionFailed:
-            return NSLocalizedString("Incorrect password or corrupted backup file.", comment: "")
+            return "Incorrect password or corrupted backup file."
         case .exportPasswordMatchesApplePassword:
-            return NSLocalizedString("File password cannot be the same as Apple ID password stored in secure keychain.", comment: "")
+            return "File password cannot be the same as Apple ID password stored in secure keychain."
         case .invalidDataFormat:
-            return NSLocalizedString("The backup file format is invalid.", comment: "")
+            return "The backup file format is invalid."
         }
     }
 }

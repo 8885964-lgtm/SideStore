@@ -148,7 +148,7 @@ final class BonjourDiscoveryViewModel: ObservableObject {
             }
             return keys.map { DomainSection(id: "group_\($0)", title: "\($0) (\(grouped[$0]?.count ?? 0))", items: grouped[$0] ?? []) }
         } else {
-            return [DomainSection(id: "all_domains", title: NSLocalizedString("Browsable Domains", comment: ""), items: sorted)]
+            return [DomainSection(id: "all_domains", title: "Browsable Domains", items: sorted)]
         }
     }
     
@@ -167,7 +167,7 @@ final class BonjourDiscoveryViewModel: ObservableObject {
         
         switch serviceTypeGroupOption {
         case .none:
-            let title = serviceTypes.count == 1 ? NSLocalizedString("1 Service Found", comment: "") : String(format: NSLocalizedString("%@ Services Found", comment: ""), NSNumber(value: serviceTypes.count))
+            let title = "\(serviceTypes.count) Service\(serviceTypes.count == 1 ? "" : "s") Found"
             return [ServiceTypeSection(id: "all_types", title: title, items: sorted)]
             
         case .protocolType:
@@ -177,13 +177,13 @@ final class BonjourDiscoveryViewModel: ObservableObject {
             
             var sections: [ServiceTypeSection] = []
             if !tcpItems.isEmpty {
-                sections.append(ServiceTypeSection(id: "tcp_types", title: String(format: NSLocalizedString("TCP Services (%@)", comment: ""), NSNumber(value: tcpItems.count)), items: tcpItems))
+                sections.append(ServiceTypeSection(id: "tcp_types", title: "TCP Services (\(tcpItems.count))", items: tcpItems))
             }
             if !udpItems.isEmpty {
-                sections.append(ServiceTypeSection(id: "udp_types", title: String(format: NSLocalizedString("UDP Services (%@)", comment: ""), NSNumber(value: udpItems.count)), items: udpItems))
+                sections.append(ServiceTypeSection(id: "udp_types", title: "UDP Services (\(udpItems.count))", items: udpItems))
             }
             if !otherItems.isEmpty {
-                sections.append(ServiceTypeSection(id: "other_types", title: String(format: NSLocalizedString("Other Services (%@)", comment: ""), NSNumber(value: otherItems.count)), items: otherItems))
+                sections.append(ServiceTypeSection(id: "other_types", title: "Other Services (\(otherItems.count))", items: otherItems))
             }
             return sections
             
@@ -193,10 +193,10 @@ final class BonjourDiscoveryViewModel: ObservableObject {
             
             var sections: [ServiceTypeSection] = []
             if !recognized.isEmpty {
-                sections.append(ServiceTypeSection(id: "recognized_types", title: String(format: NSLocalizedString("Recognized Services (%@)", comment: ""), NSNumber(value: recognized.count)), items: recognized))
+                sections.append(ServiceTypeSection(id: "recognized_types", title: "Recognized Services (\(recognized.count))", items: recognized))
             }
             if !unknown.isEmpty {
-                sections.append(ServiceTypeSection(id: "unknown_types", title: String(format: NSLocalizedString("Other / Raw Services (%@)", comment: ""), NSNumber(value: unknown.count)), items: unknown))
+                sections.append(ServiceTypeSection(id: "unknown_types", title: "Other / Raw Services (\(unknown.count))", items: unknown))
             }
             return sections
             
@@ -224,7 +224,7 @@ final class BonjourDiscoveryViewModel: ObservableObject {
         
         switch instanceGroupOption {
         case .none:
-            let title = instances.count == 1 ? NSLocalizedString("1 Instance", comment: "") : String(format: NSLocalizedString("%@ Instances", comment: ""), NSNumber(value: instances.count))
+            let title = "\(instances.count) Instance\(instances.count == 1 ? "" : "s")"
             return [ServiceInstanceSection(id: "all_instances", title: title, items: sorted)]
             
         case .ipVersion:
