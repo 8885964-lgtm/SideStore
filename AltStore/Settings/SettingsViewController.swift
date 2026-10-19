@@ -979,20 +979,6 @@ extension SettingsViewController
         self.accountStatus == .completed ? 3 : 4
     }
 
-    /// The "Automatic Refresh" row added after the storyboard's App Refresh rows.
-    private var showsAutoRefreshRow: Bool {
-        #if os(iOS)
-        return true
-        #else
-        return false
-        #endif
-    }
-
-    private func isAutoRefreshRow(_ indexPath: IndexPath) -> Bool {
-        guard indexPath.section < Section.allCases.count else { return false }
-        return Section.allCases[indexPath.section] == .appRefresh && self.showsAutoRefreshRow && indexPath.row == AppRefreshRow.allCases.count
-    }
-
     private func isAppleIDsRow(_ indexPath: IndexPath) -> Bool {
         guard indexPath.section < Section.allCases.count else { return false }
         return Section.allCases[indexPath.section] == .account && self.showsAppleIDsRow && indexPath.row == self.appleIDsRowIndex
@@ -1015,9 +1001,6 @@ extension SettingsViewController
         if self.isAppleIDsRow(indexPath) {
             return AppleAccountsSettingsCell.preferredHeight
         }
-        if self.isAutoRefreshRow(indexPath) {
-            return SettingsDisclosureCell.preferredHeight
-        }
         if Section.allCases[indexPath.section] == .account && indexPath.row == 3 {
             return AccountVerificationRow.preferredHeight
         }
@@ -1033,7 +1016,7 @@ extension SettingsViewController
 
     override func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath)
     {
-        if self.isAppleIDsRow(indexPath) || self.isAutoRefreshRow(indexPath) { return }
+        if self.isAppleIDsRow(indexPath) { return }
         if Section.allCases[indexPath.section] == .account {
             if indexPath.row == 2, let insetCell = cell as? InsetGroupTableViewCell {
                 insetCell.style = self.showsAppleIDsRow ? .middle : ((self.accountStatus == .completed) ? .bottom : .middle)
@@ -1048,7 +1031,7 @@ extension SettingsViewController
 
     override func tableView(_ tableView: UITableView, indentationLevelForRowAt indexPath: IndexPath) -> Int
     {
-        if self.isAppleIDsRow(indexPath) || self.isAutoRefreshRow(indexPath) {
+        if self.isAppleIDsRow(indexPath) {
             return 0
         }
         if Section.allCases[indexPath.section] == .account && indexPath.row == 3 {
@@ -1074,7 +1057,7 @@ extension SettingsViewController
         case .account:
             guard self.activeTeam != nil else { return 0 }
             return (self.accountStatus == .completed ? 3 : 4) + 1
-        case .appRefresh: return AppRefreshRow.allCases.count + (self.showsAutoRefreshRow ? 1 : 0)
+        case .appRefresh: return AppRefreshRow.allCases.count
         case .advancedSettings: return AdvancedSettingsRow.allCases.count
         default: return super.tableView(tableView, numberOfRowsInSection: section.rawValue)
         }
@@ -1086,15 +1069,6 @@ extension SettingsViewController
             let cell = tableView.dequeueReusableCell(withIdentifier: AppleAccountsSettingsCell.reuseIdentifier) as? AppleAccountsSettingsCell
                 ?? AppleAccountsSettingsCell()
             cell.configure(numberOfAppleIDs: AppleAccountStore.shared.storedAppleIDs().count)
-            return cell
-        }
-        if self.isAutoRefreshRow(indexPath) {
-            let cell = tableView.dequeueReusableCell(withIdentifier: SettingsDisclosureCell.reuseIdentifier) as? SettingsDisclosureCell
-                ?? SettingsDisclosureCell()
-            cell.configure(title: AutoRefreshSettingsText.title,
-                           value: AutoRefreshSettingsText.summary,
-                           accessibilityHint: NSLocalizedString("Choose when apps are refreshed automatically.", comment: ""))
-            cell.style = .bottom
             return cell
         }
         if Section.allCases[indexPath.section] == .account && indexPath.row == 3 {
@@ -1138,12 +1112,6 @@ extension SettingsViewController
                indexPath.row == AppRefreshRow.allCases.count-1      // last row
         {
             cell.setValue(3, forKey: "style")
-            
-            if self.showsAutoRefreshRow
-            {
-                // The Automatic Refresh row closes the card instead.
-                cell.style = (AppRefreshRow.allCases.count == 1) ? .top : .middle
-            }
         }
         
         
@@ -1239,14 +1207,6 @@ extension SettingsViewController
                 self.resolvePendingAccountActions()
             }
         case .appRefresh:
-            if self.isAutoRefreshRow(indexPath) {
-                tableView.deselectRow(at: indexPath, animated: true)
-                let hostingController = UIHostingController(rootView: AutoRefreshSettingsView())
-                hostingController.view.backgroundColor = .settingsBackground
-                hostingController.title = AutoRefreshSettingsText.title
-                self.prepare(for: UIStoryboardSegue(identifier: "diagnostics", source: self, destination: hostingController), sender: nil)
-                return
-            }
             let row = AppRefreshRow.allCases[indexPath.row]
             switch row
             {

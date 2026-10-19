@@ -814,37 +814,13 @@ final class AppManager: ObservableObject, @unchecked Sendable
         let dbBackgroundContext = DatabaseManager.shared.persistentContainer.newBackgroundContext()
         let context = StandaloneOperationContext(steps: .backgroundRefreshApps, dbBackgroundContext: dbBackgroundContext)
         let backgroundRefreshAppsOperation = try BackgroundRefreshAppsOperation(installedApps: installedApps, context: context)
-        // Only needed for the user's retry interval; nothing is read or recorded otherwise.
-        var requestedBundleIdentifiers: [String] = []
-        if AutoRefreshPreferences.retryIntervalHours != nil
-        {
-            for installedApp in installedApps
-            {
-                guard let appContext = installedApp.managedObjectContext else { continue }
-                let bundleIdentifier: String = appContext.performAndWait { installedApp.bundleIdentifier }
-                requestedBundleIdentifiers.append(bundleIdentifier)
-            }
-        }
-        let failedRequestBundleIdentifiers = requestedBundleIdentifiers
         Task.detached {
             do {
                 backgroundRefreshAppsOperation.presentsFinishedNotification = presentsNotifications
                 
                 let result = try await backgroundRefreshAppsOperation.execute()
-                var failedBundleIdentifiers: [String] = []
-                var succeededBundleIdentifiers: [String] = []
-                for (bundleIdentifier, appResult) in result
-                {
-                    switch appResult
-                    {
-                    case .success: succeededBundleIdentifiers.append(bundleIdentifier)
-                    case .failure: failedBundleIdentifiers.append(bundleIdentifier)
-                    }
-                }
-                AutoRefreshPreferences.recordRefreshResults(failedBundleIdentifiers: failedBundleIdentifiers, succeededBundleIdentifiers: succeededBundleIdentifiers)
                 completionHandler(.success(result))
             } catch {
-                AutoRefreshPreferences.recordRefreshResults(failedBundleIdentifiers: failedRequestBundleIdentifiers, succeededBundleIdentifiers: [])
                 completionHandler(.failure(error))
             }
         }

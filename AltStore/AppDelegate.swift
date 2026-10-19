@@ -474,8 +474,7 @@ extension AppDelegate
         guard UserDefaults.standard.isBackgroundRefreshEnabled else { return }
         
         let context = DatabaseManager.shared.persistentContainer.newBackgroundContext()
-        // The user's automatic refresh timing narrows these down; by default every app stays.
-        let installedApps = InstalledApp.filterDueForAutomaticRefresh(InstalledApp.fetchAppsForBackgroundRefresh(in: context))
+        let installedApps = InstalledApp.fetchAppsForBackgroundRefresh(in: context)
         _ = try? AppManager.shared.backgroundRefresh(installedApps, completionHandler: refreshAppsCompletionHandler)
     }
 }

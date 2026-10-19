@@ -122,20 +122,11 @@ struct RefreshAllAppsIntent: AppIntent, CustomIntentMigratedAppIntent, Predictab
     
     let presentsNotifications: Bool
     
-    /// Whether only the apps due under the user's automatic refresh timing are refreshed (used by the widget).
-    let appliesAutoRefreshSchedule: Bool
-    
     private let operationActor = OperationActor()
     
     init(presentsNotifications: Bool)
     {
-        self.init(presentsNotifications: presentsNotifications, appliesAutoRefreshSchedule: false)
-    }
-    
-    init(presentsNotifications: Bool, appliesAutoRefreshSchedule: Bool)
-    {
         self.presentsNotifications = presentsNotifications
-        self.appliesAutoRefreshSchedule = appliesAutoRefreshSchedule
         
         self.progress.completedUnitCount = 0
         self.progress.totalUnitCount = 1
@@ -201,11 +192,7 @@ private extension RefreshAllAppsIntent
         try await DatabaseManager.shared.start()
         
         let context = DatabaseManager.shared.persistentContainer.newBackgroundContext()
-        let appliesAutoRefreshSchedule = self.appliesAutoRefreshSchedule
-        let installedApps = await context.perform { () -> [InstalledApp] in
-            let installedApps = InstalledApp.fetchAppsForRefreshingAll(in: context)
-            return appliesAutoRefreshSchedule ? InstalledApp.filterDueForAutomaticRefresh(installedApps) : installedApps
-        }
+        let installedApps = await context.perform { InstalledApp.fetchAppsForRefreshingAll(in: context) }
         
         try await withCheckedThrowingContinuation { continuation in
             let operation = try? AppManager.shared.backgroundRefresh(installedApps, presentsNotifications: self.presentsNotifications) { (result) in
